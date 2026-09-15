@@ -184,12 +184,13 @@ tr:hover td{ background:#F5F8FB; }
     </div>
     <nav>
       <button class="nav-btn active" data-view="dashboard"><span class="icon">▦</span><span class="label">Dashboard</span></button>
-      <button class="nav-btn" data-view="novo"><span class="icon">📷</span><span class="label">Novo Diagnóstico</span></button>
+      <button class="nav-btn" data-view="novo"><span class="icon">📷</span><span class="label">Diagnóstico IA</span></button>
+      <button class="nav-btn" data-view="vistoria"><span class="icon">📋</span><span class="label">Vistoria Completa</span></button>
       <button class="nav-btn" data-view="historico"><span class="icon">☰</span><span class="label">Histórico</span></button>
     </nav>
     <div class="sidebar-footer">
       <button class="logout-btn" id="logout-btn">↩ Sair</button>
-      <div class="dev-signature">Foster Engenharia &amp; Construção</div>
+      <div class="dev-signature">Wilson Foster · Foster Engenharia &amp; Construção<br>(24) 99209-6103</div>
     </div>
   </div>
   <div class="main">
@@ -223,8 +224,15 @@ async function apiFetch(path, options={}){
   }
 }
 
+const DESENVOLVEDOR = {
+  nome: 'Wilson Foster',
+  empresa: 'Foster Engenharia & Construção',
+  telefone: '(24) 99209-6103',
+  email: 'comercial@fosterconstrucoes.com.br'
+};
+
 let usuarioLogado = null;
-let DB = { diagnosticos: [] };
+let DB = { diagnosticos: [], vistorias: [] };
 
 function toast(msg, ok=true){
   const t = document.getElementById('toast');
@@ -250,7 +258,7 @@ function badgeGravidade(g){
 /* ======================================================
    NAVEGAÇÃO
    ====================================================== */
-const titles = { dashboard:'Dashboard', novo:'Novo Diagnóstico', historico:'Histórico' };
+const titles = { dashboard:'Dashboard', novo:'Diagnóstico IA', vistoria:'Vistoria Completa', historico:'Histórico' };
 document.querySelectorAll('.nav-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -264,6 +272,8 @@ async function loadAll(){
   if(!supaOk) return;
   const resp = await apiFetch('/api/diagnosticos');
   if(resp.ok) DB.diagnosticos = resp.data || [];
+  const resp2 = await apiFetch('/api/vistorias');
+  if(resp2.ok) DB.vistorias = resp2.data || [];
 }
 
 async function render(view){
@@ -272,6 +282,7 @@ async function render(view){
   await loadAll();
   if(view === 'dashboard') renderDashboard(el);
   else if(view === 'novo') renderNovo(el);
+  else if(view === 'vistoria') renderVistoriaCompleta(el);
   else if(view === 'historico') renderHistorico(el);
 }
 
@@ -282,20 +293,24 @@ function renderDashboard(el){
   const total = DB.diagnosticos.length;
   const alta = DB.diagnosticos.filter(d=>d.gravidade==='alta').length;
   const media = DB.diagnosticos.filter(d=>d.gravidade==='media').length;
-  const estrutural = DB.diagnosticos.filter(d=>d.provavel_estrutural==='sim').length;
+  const totalVistorias = DB.vistorias.length;
 
   el.innerHTML = `
     ${configNote()}
     <div class="grid grid-4" style="margin-bottom:20px;">
-      <div class="stat"><div class="num mono">${total}</div><div class="lbl">Diagnósticos</div></div>
+      <div class="stat"><div class="num mono">${total}</div><div class="lbl">Diagnósticos IA</div></div>
       <div class="stat bad"><div class="num mono">${alta}</div><div class="lbl">Gravidade alta</div></div>
       <div class="stat warn"><div class="num mono">${media}</div><div class="lbl">Gravidade média</div></div>
-      <div class="stat bad"><div class="num mono">${estrutural}</div><div class="lbl">Possível estrutural</div></div>
+      <div class="stat ok"><div class="num mono">${totalVistorias}</div><div class="lbl">Vistorias completas</div></div>
     </div>
     <div class="panel">
       <h2>Diagnósticos recentes</h2>
       ${DB.diagnosticos.length ? tabelaDiagnosticos(DB.diagnosticos.slice(0,8)) : `<div class="empty"><div class="display">Nenhum diagnóstico ainda</div>Comece um novo diagnóstico pra ver os resultados aqui.</div>`}
     </div>
+    ${DB.vistorias.length ? `<div class="panel">
+      <h2>Vistorias recentes</h2>
+      ${tabelaVistorias(DB.vistorias.slice(0,8))}
+    </div>` : ''}
   `;
 }
 
@@ -481,15 +496,394 @@ async function salvarDiagnostico(){
 /* ======================================================
    HISTÓRICO
    ====================================================== */
-function renderHistorico(el){
+/* ======================================================
+   VISTORIA COMPLETA (por ambiente, item a item)
+   ====================================================== */
+const CATEGORIAS_VISTORIA = [
+  {v:'locacao_entrada', l:'Locação — Entrada (check-in)'},
+  {v:'locacao_saida', l:'Locação — Saída (check-out)'},
+  {v:'obra_nova', l:'Obra Nova — Entrega/Recebimento'},
+  {v:'reforma', l:'Reforma — Antes/Depois'},
+  {v:'avaliacao_geral', l:'Avaliação Geral do Imóvel'}
+];
+const AMBIENTES_COMUNS = ['Sala','Cozinha','Quarto 1','Quarto 2','Banheiro','Área de Serviço','Varanda','Garagem','Área Externa','Escritório'];
+const ITENS_COMUNS = ['Paredes','Piso','Teto','Portas','Janelas','Instalação Elétrica','Instalação Hidráulica','Pintura','Acabamentos','Louças/Metais'];
+
+let vistoriaAtual = null; // { categoria, titulo, imovel_endereco, cliente_nome, data_vistoria, ambientes:[{nome, itens:[{item, estado, observacao, imagem_base64}]}] }
+
+function renderVistoriaCompleta(el){
+  vistoriaAtual = { categoria:'', titulo:'', imovel_endereco:'', cliente_nome:'', data_vistoria: new Date().toISOString().slice(0,10), ambientes:[] };
   el.innerHTML = `
     ${configNote()}
     <div class="panel">
-      <h2>Todos os diagnósticos <span class="tag">${DB.diagnosticos.length}</span></h2>
-      <div class="field"><input id="busca-diag" placeholder="Buscar por título, obra ou patologia..." oninput="filtrarDiagnosticos()"></div>
-      <div id="lista-diag">${DB.diagnosticos.length ? tabelaDiagnosticos(DB.diagnosticos) : `<div class="empty"><div class="display">Nenhum diagnóstico registrado</div></div>`}</div>
+      <h2>1. Dados da vistoria</h2>
+      <div class="row">
+        <div class="field"><label>Categoria</label>
+          <select id="vc-categoria">
+            <option value="">Selecione...</option>
+            ${CATEGORIAS_VISTORIA.map(c=>`<option value="${c.v}">${c.l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Data</label><input id="vc-data" type="date" value="${vistoriaAtual.data_vistoria}"></div>
+      </div>
+      <div class="field"><label>Título / Referência</label><input id="vc-titulo" placeholder="Ex: Vistoria de saída - Apto 42"></div>
+      <div class="row">
+        <div class="field"><label>Endereço do imóvel</label><input id="vc-endereco" placeholder="Endereço completo"></div>
+        <div class="field"><label>Cliente / Locatário / Responsável</label><input id="vc-cliente" placeholder="Nome"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>2. Ambientes <span class="tag">${0} adicionado(s)</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Adicione cada cômodo/área e registre os itens de cada um.</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        ${AMBIENTES_COMUNS.map(a=>`<button type="button" class="btn btn-outline btn-sm" onclick="adicionarAmbiente('${a}')">+ ${a}</button>`).join('')}
+      </div>
+      <div class="row">
+        <input id="vc-ambiente-custom" placeholder="Outro ambiente...">
+        <button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="adicionarAmbienteCustom()">Adicionar</button>
+      </div>
+      <div id="lista-ambientes" style="margin-top:16px;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>3. Observações gerais</h2>
+      <textarea id="vc-obs-gerais" rows="3" placeholder="Observações finais sobre o imóvel, resumo geral, etc."></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="salvarVistoriaCompleta()">Finalizar e salvar vistoria</button>
+  `;
+  document.getElementById('vc-categoria').addEventListener('change', e=> vistoriaAtual.categoria = e.target.value);
+  document.getElementById('vc-titulo').addEventListener('input', e=> vistoriaAtual.titulo = e.target.value);
+  document.getElementById('vc-data').addEventListener('input', e=> vistoriaAtual.data_vistoria = e.target.value);
+  document.getElementById('vc-endereco').addEventListener('input', e=> vistoriaAtual.imovel_endereco = e.target.value);
+  document.getElementById('vc-cliente').addEventListener('input', e=> vistoriaAtual.cliente_nome = e.target.value);
+}
+
+function adicionarAmbiente(nome){
+  vistoriaAtual.ambientes.push({ nome, itens: [] });
+  renderListaAmbientes();
+}
+function adicionarAmbienteCustom(){
+  const input = document.getElementById('vc-ambiente-custom');
+  if(!input.value.trim()) return;
+  adicionarAmbiente(input.value.trim());
+  input.value = '';
+}
+function removerAmbiente(idx){
+  if(!confirm('Remover este ambiente e todos os itens dele?')) return;
+  vistoriaAtual.ambientes.splice(idx,1);
+  renderListaAmbientes();
+}
+
+function renderListaAmbientes(){
+  const box = document.getElementById('lista-ambientes');
+  document.querySelector('#content .panel:nth-child(2) h2 .tag') && (document.querySelector('#content .panel:nth-child(2) h2 .tag').textContent = `${vistoriaAtual.ambientes.length} adicionado(s)`);
+  if(!vistoriaAtual.ambientes.length){ box.innerHTML = '<div class="empty" style="padding:16px;">Nenhum ambiente adicionado ainda</div>'; return; }
+
+  box.innerHTML = vistoriaAtual.ambientes.map((amb, aIdx) => `
+    <div class="panel" style="background:#F9FBFC; margin-bottom:12px;">
+      <div class="row2" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:16px;">${amb.nome}</h3>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removerAmbiente(${aIdx})">Remover ambiente</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+        ${ITENS_COMUNS.map(i=>`<button type="button" class="btn btn-outline btn-sm" onclick="adicionarItem(${aIdx}, '${i}')">+ ${i}</button>`).join('')}
+      </div>
+      <div id="itens-ambiente-${aIdx}">${renderItensAmbiente(amb, aIdx)}</div>
+    </div>
+  `).join('');
+}
+
+function adicionarItem(aIdx, nomeItem){
+  vistoriaAtual.ambientes[aIdx].itens.push({ item: nomeItem, estado: 'bom', observacao: '', imagem_base64: null });
+  document.getElementById(`itens-ambiente-${aIdx}`).innerHTML = renderItensAmbiente(vistoriaAtual.ambientes[aIdx], aIdx);
+}
+function removerItem(aIdx, iIdx){
+  vistoriaAtual.ambientes[aIdx].itens.splice(iIdx,1);
+  document.getElementById(`itens-ambiente-${aIdx}`).innerHTML = renderItensAmbiente(vistoriaAtual.ambientes[aIdx], aIdx);
+}
+
+function renderItensAmbiente(amb, aIdx){
+  if(!amb.itens.length) return '<div style="font-size:12.5px; color:var(--ink-soft);">Nenhum item ainda — clique nos botões acima.</div>';
+  return amb.itens.map((it, iIdx) => `
+    <div style="background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong style="font-size:13.5px;">${it.item}</strong>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(${aIdx},${iIdx})">Remover</button>
+      </div>
+      <div class="row">
+        <div class="field" style="margin-bottom:8px;"><label>Estado</label>
+          <select onchange="atualizarItem(${aIdx},${iIdx},'estado',this.value)">
+            <option value="bom" ${it.estado==='bom'?'selected':''}>Bom</option>
+            <option value="regular" ${it.estado==='regular'?'selected':''}>Regular</option>
+            <option value="ruim" ${it.estado==='ruim'?'selected':''}>Ruim</option>
+            <option value="nao_aplicavel" ${it.estado==='nao_aplicavel'?'selected':''}>Não aplicável</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:8px;"><label>Foto</label>
+          <input type="file" accept="image/*" capture="environment" onchange="fotoItem(${aIdx},${iIdx},this.files[0])">
+        </div>
+      </div>
+      ${it.imagem_base64 ? `<img src="data:image/jpeg;base64,${it.imagem_base64}" style="max-width:120px; border-radius:4px; margin-bottom:8px; display:block;">` : ''}
+      <input placeholder="Observação (opcional)" value="${it.observacao||''}" onchange="atualizarItem(${aIdx},${iIdx},'observacao',this.value)">
+    </div>
+  `).join('');
+}
+
+function atualizarItem(aIdx, iIdx, campo, valor){
+  vistoriaAtual.ambientes[aIdx].itens[iIdx][campo] = valor;
+}
+
+async function fotoItem(aIdx, iIdx, file){
+  if(!file) return;
+  try{
+    const dataUrl = await comprimirImagem(file, 1000, 0.65);
+    vistoriaAtual.ambientes[aIdx].itens[iIdx].imagem_base64 = dataUrl.split(',')[1];
+    document.getElementById(`itens-ambiente-${aIdx}`).innerHTML = renderItensAmbiente(vistoriaAtual.ambientes[aIdx], aIdx);
+  }catch(e){ toast('Erro ao processar a foto', false); }
+}
+
+async function salvarVistoriaCompleta(){
+  if(!vistoriaAtual.categoria){ toast('Selecione a categoria da vistoria', false); return; }
+  if(!vistoriaAtual.titulo){ toast('Preencha o título da vistoria', false); return; }
+  if(!vistoriaAtual.ambientes.length){ toast('Adicione ao menos um ambiente', false); return; }
+
+  const obsGerais = document.getElementById('vc-obs-gerais').value;
+  const payload = {
+    categoria: vistoriaAtual.categoria,
+    titulo: vistoriaAtual.titulo,
+    imovel_endereco: vistoriaAtual.imovel_endereco,
+    cliente_nome: vistoriaAtual.cliente_nome,
+    data_vistoria: vistoriaAtual.data_vistoria,
+    observacoes_gerais: obsGerais,
+    conteudo_json: JSON.stringify({ ambientes: vistoriaAtual.ambientes }),
+    status: 'concluida'
+  };
+
+  const resp = await apiFetch('/api/vistorias', { method:'POST', body: JSON.stringify(payload) });
+  if(!resp.ok){ toast(resp.data?.message || 'Erro ao salvar vistoria', false); return; }
+  toast('Vistoria salva com sucesso');
+  document.querySelector('[data-view="historico"]').click();
+}
+
+let historicoAba = 'diagnosticos';
+
+function renderHistorico(el){
+  el.innerHTML = `
+    ${configNote()}
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <button class="btn ${historicoAba==='diagnosticos'?'btn-primary':'btn-outline'} btn-sm" onclick="trocarAbaHistorico('diagnosticos')">Diagnósticos IA <span class="mono">${DB.diagnosticos.length}</span></button>
+      <button class="btn ${historicoAba==='vistorias'?'btn-primary':'btn-outline'} btn-sm" onclick="trocarAbaHistorico('vistorias')">Vistorias Completas <span class="mono">${DB.vistorias.length}</span></button>
+    </div>
+    <div id="historico-conteudo"></div>
+  `;
+  renderConteudoHistorico();
+}
+
+function trocarAbaHistorico(aba){
+  historicoAba = aba;
+  render('historico');
+}
+
+function renderConteudoHistorico(){
+  const box = document.getElementById('historico-conteudo');
+  if(historicoAba === 'diagnosticos'){
+    box.innerHTML = `
+      <div class="panel">
+        <h2>Todos os diagnósticos <span class="tag">${DB.diagnosticos.length}</span></h2>
+        <div class="field"><input id="busca-diag" placeholder="Buscar por título, obra ou patologia..." oninput="filtrarDiagnosticos()"></div>
+        <div id="lista-diag">${DB.diagnosticos.length ? tabelaDiagnosticos(DB.diagnosticos) : `<div class="empty"><div class="display">Nenhum diagnóstico registrado</div></div>`}</div>
+      </div>
+    `;
+  } else {
+    box.innerHTML = `
+      <div class="panel">
+        <h2>Todas as vistorias <span class="tag">${DB.vistorias.length}</span></h2>
+        <div class="field"><input id="busca-vist" placeholder="Buscar por título, endereço ou cliente..." oninput="filtrarVistorias()"></div>
+        <div id="lista-vist">${DB.vistorias.length ? tabelaVistorias(DB.vistorias) : `<div class="empty"><div class="display">Nenhuma vistoria registrada</div></div>`}</div>
+      </div>
+    `;
+  }
+}
+
+function labelCategoria(c){
+  const found = CATEGORIAS_VISTORIA.find(x=>x.v===c);
+  return found ? found.l : (c || '-');
+}
+
+function tabelaVistorias(list){
+  const tabela = `<div class="table-scroll"><table><thead><tr><th>Data</th><th>Título</th><th>Categoria</th><th>Endereço</th><th></th></tr></thead><tbody>
+    ${list.map(v=>`<tr>
+      <td class="mono">${fmtDate(v.data_vistoria || v.criado_em)}</td>
+      <td>${v.titulo || '-'}</td>
+      <td>${labelCategoria(v.categoria)}</td>
+      <td>${v.imovel_endereco || '-'}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="verVistoria('${v.id}')">Ver</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+
+  const cards = `<div class="diag-cards">
+    ${list.map(v=>`<div class="diag-card" onclick="verVistoria('${v.id}')">
+      <div class="row2"><span class="title">${v.titulo || 'Sem título'}</span></div>
+      <div class="meta">${labelCategoria(v.categoria)}</div>
+      <div class="meta">${v.imovel_endereco || '-'} · ${fmtDate(v.data_vistoria || v.criado_em)}</div>
+    </div>`).join('')}
+  </div>`;
+
+  return tabela + cards;
+}
+
+function filtrarVistorias(){
+  const termo = document.getElementById('busca-vist').value.toLowerCase();
+  const filtrados = DB.vistorias.filter(v =>
+    (v.titulo||'').toLowerCase().includes(termo) ||
+    (v.imovel_endereco||'').toLowerCase().includes(termo) ||
+    (v.cliente_nome||'').toLowerCase().includes(termo)
+  );
+  document.getElementById('lista-vist').innerHTML = filtrados.length ? tabelaVistorias(filtrados) : `<div class="empty"><div class="display">Nenhum resultado encontrado</div></div>`;
+}
+
+async function verVistoria(id){
+  const resp = await apiFetch(`/api/vistorias/${id}`);
+  if(!resp.ok){ toast('Erro ao carregar vistoria', false); return; }
+  const v = resp.data;
+  const conteudo = JSON.parse(v.conteudo_json || '{"ambientes":[]}');
+  window._vistAtual = v;
+  window._vistConteudo = conteudo;
+
+  const badgeEstado = (e) => {
+    const map = {bom:'badge-baixa', regular:'badge-media', ruim:'badge-alta', nao_aplicavel:'badge-indeterminado'};
+    const lab = {bom:'Bom', regular:'Regular', ruim:'Ruim', nao_aplicavel:'N/A'};
+    return `<span class="badge ${map[e]||'badge-indeterminado'}">${lab[e]||e}</span>`;
+  };
+
+  document.getElementById('content').innerHTML = `
+    <div class="panel">
+      <h2>${v.titulo || 'Vistoria'} <span class="tag">${labelCategoria(v.categoria)}</span></h2>
+      <div class="row">
+        <div><strong>Endereço:</strong> ${v.imovel_endereco || '-'}</div>
+        <div><strong>Cliente:</strong> ${v.cliente_nome || '-'}</div>
+      </div>
+      <div style="font-size:13.5px; margin-top:6px;"><strong>Data:</strong> ${fmtDate(v.data_vistoria)}</div>
+
+      ${conteudo.ambientes.map(amb => `
+        <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line);">
+          <h3 style="font-size:15.5px; margin-bottom:8px;">${amb.nome}</h3>
+          ${amb.itens.map(it => `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:6px 0; font-size:13.5px;">
+              <div>
+                <strong>${it.item}</strong> ${badgeEstado(it.estado)}
+                ${it.observacao ? `<div style="color:var(--ink-soft); font-size:12.5px;">${it.observacao}</div>` : ''}
+              </div>
+              ${it.imagem_base64 ? `<img src="data:image/jpeg;base64,${it.imagem_base64}" style="width:60px; height:60px; object-fit:cover; border-radius:4px;">` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+
+      ${v.observacoes_gerais ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Observações gerais:</strong> ${v.observacoes_gerais}</div>` : ''}
+
+      <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="gerarLaudoPDF()">Gerar laudo PDF</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirVistoria('${v.id}')">Excluir</button>
+        <button class="btn btn-outline btn-sm" onclick="document.querySelector('[data-view=&quot;historico&quot;]').click()">Voltar</button>
+      </div>
     </div>
   `;
+}
+
+async function excluirVistoria(id){
+  if(!confirm('Excluir esta vistoria? Essa ação não pode ser desfeita.')) return;
+  const resp = await apiFetch(`/api/vistorias/${id}`, { method:'DELETE' });
+  if(!resp.ok){ toast('Erro ao excluir', false); return; }
+  toast('Vistoria excluída');
+  historicoAba = 'vistorias';
+  document.querySelector('[data-view="historico"]').click();
+}
+
+function gerarLaudoPDF(){
+  const v = window._vistAtual;
+  const conteudo = window._vistConteudo;
+  if(!v || !conteudo) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const labEstado = {bom:'Bom', regular:'Regular', ruim:'Ruim', nao_aplicavel:'Não aplicável'};
+
+  function novaPagina(){
+    doc.addPage();
+    return desenharCabecalhoLaudo();
+  }
+  function desenharCabecalhoLaudo(){
+    doc.setFillColor(27,75,114);
+    doc.rect(0,0,210,16,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text('VISTORIA — LAUDO DE VISTORIA', 15, 10);
+    doc.setTextColor(0,0,0);
+    return 26;
+  }
+
+  let y = desenharCabecalhoLaudo();
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text(v.titulo || 'Vistoria', 15, y); y+=8;
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  doc.text(`Categoria: ${labelCategoria(v.categoria)}`, 15, y); y+=6;
+  doc.text(`Endereço: ${v.imovel_endereco || '-'}`, 15, y); y+=6;
+  doc.text(`Cliente/Responsável: ${v.cliente_nome || '-'}`, 15, y); y+=6;
+  doc.text(`Data da vistoria: ${fmtDate(v.data_vistoria)}`, 15, y); y+=6;
+  doc.text(`Vistoriador: ${v.usuario_email || '-'}`, 15, y); y+=10;
+
+  conteudo.ambientes.forEach(amb=>{
+    if(y > 250){ y = novaPagina(); }
+    doc.setFillColor(240,244,248);
+    doc.rect(15, y-4, 180, 8, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text(amb.nome, 17, y+1.5); y+=10;
+
+    amb.itens.forEach(it=>{
+      if(y > 260){ y = novaPagina(); }
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+      doc.text(`${it.item} — ${labEstado[it.estado] || it.estado}`, 17, y);
+      if(it.imagem_base64){
+        try{ doc.addImage(`data:image/jpeg;base64,${it.imagem_base64}`, 'JPEG', 165, y-4, 28, 21); }catch(e){}
+      }
+      y += 5;
+      if(it.observacao){
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+        const linhasObs = doc.splitTextToSize(it.observacao, 140);
+        doc.text(linhasObs, 17, y);
+        y += linhasObs.length*4;
+      }
+      y += (it.imagem_base64 ? 20 : 4);
+    });
+    y += 4;
+  });
+
+  if(v.observacoes_gerais){
+    if(y > 240){ y = novaPagina(); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('Observações gerais:', 15, y); y+=6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    const linhasG = doc.splitTextToSize(v.observacoes_gerais, 180);
+    doc.text(linhasG, 15, y); y += linhasG.length*4.5 + 8;
+  }
+
+  if(y > 260){ y = novaPagina(); }
+  y += 10;
+  doc.setFontSize(9);
+  doc.text('_______________________________', 15, y);
+  doc.text('_______________________________', 115, y); y+=5;
+  doc.text('Vistoriador responsável', 15, y);
+  doc.text('Cliente / Locatário / Responsável', 115, y);
+  y += 14;
+
+  desenharRodapeDesenvolvedor(doc, y);
+
+  doc.save(`vistoria-${(v.titulo||'laudo').replace(/[^a-z0-9]/gi,'-')}.pdf`);
+  toast('Laudo PDF gerado');
 }
 
 function filtrarDiagnosticos(){
@@ -598,9 +992,20 @@ function gerarRelatorioPDF(id){
   doc.setFontSize(8); doc.setTextColor(120,120,120);
   const aviso = 'Este relatório é uma triagem preliminar assistida por IA, com apoio conceitual na ABNT NBR 16747 (Inspeção Predial), e não substitui a vistoria presencial e o laudo técnico de um engenheiro responsável.';
   doc.text(doc.splitTextToSize(aviso, 180), 15, y);
+  y += doc.splitTextToSize(aviso, 180).length*4 + 8;
+  desenharRodapeDesenvolvedor(doc, y);
 
   doc.save(`diagnostico-${(d.titulo||'relatorio').replace(/[^a-z0-9]/gi,'-')}.pdf`);
   toast('Relatório PDF gerado');
+}
+
+function desenharRodapeDesenvolvedor(doc, y){
+  doc.setDrawColor(220,220,220); doc.setLineWidth(0.2);
+  doc.line(15, y, 195, y); y+=5;
+  doc.setFontSize(7.5); doc.setTextColor(140,140,140);
+  doc.text(`Desenvolvido por ${DESENVOLVEDOR.nome} — ${DESENVOLVEDOR.empresa}`, 15, y); y+=4.5;
+  doc.text(`${DESENVOLVEDOR.telefone}  ·  ${DESENVOLVEDOR.email}`, 15, y);
+  doc.setTextColor(0,0,0);
 }
 
 /* ======================================================
