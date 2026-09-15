@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VistorIA — Diagnóstico de Patologias Construtivas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --blue:#1B4B72;
+  --blue-dark:#123049;
+  --blue-2:#F0F4F8;
+  --surface:#FFFFFF;
+  --ink:#1D2733;
+  --ink-soft:#5B6572;
+  --amber:#F5A623;
+  --red:#D64545;
+  --green:#2F9E6E;
+  --line:#DCE3EA;
+  --radius:6px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{ font-family:'Inter',sans-serif; background:var(--blue-2); color:var(--ink); min-height:100vh; }
+h1,h2,h3,.display{ font-family:'Oswald',sans-serif; font-weight:700; letter-spacing:0.01em; }
+.mono{ font-family:'JetBrains Mono',monospace; }
+
+.blueprint-strip{
+  height:6px;
+  background:repeating-linear-gradient(90deg, var(--blue) 0 18px, var(--amber) 18px 22px);
+}
+
+.app{display:flex; min-height:100vh;}
+.sidebar{ width:220px; background:var(--blue-dark); color:#E7EEF4; flex-shrink:0; display:flex; flex-direction:column; }
+.brand{ padding:22px 20px 16px; border-bottom:1px solid #1F435F; }
+.brand .display{ font-size:24px; color:#fff; line-height:1.05; }
+.brand .sub{ font-size:11px; color:#9FB4C6; letter-spacing:0.06em; margin-top:3px; text-transform:uppercase; }
+nav{ padding:14px 10px; flex:1; }
+nav button{ display:flex; align-items:center; gap:10px; width:100%; background:none; border:none; color:#C7D5E0; text-align:left;
+  padding:11px 12px; border-radius:var(--radius); font-size:14px; font-weight:500; cursor:pointer; margin-bottom:2px; }
+nav button:hover{ background:#1B415C; }
+nav button.active{ background:var(--amber); color:var(--blue-dark); font-weight:700; }
+.sidebar-footer{ padding:0 10px 14px; }
+.logout-btn{ width:100%; margin:0 0 6px; padding:9px 12px; border-radius:var(--radius); background:none; border:1px solid #2A5170; color:#9FB4C6; font-size:12.5px; cursor:pointer; text-align:left; }
+.logout-btn:hover{ background:#1B415C; color:#fff; }
+.dev-signature{ color:#6E88A0; font-size:9.5px; margin-top:8px; padding:0 2px; }
+
+.main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+.topbar{ background:var(--surface); border-bottom:1px solid var(--line); padding:16px 28px; display:flex; align-items:center; justify-content:space-between; }
+.topbar h1{ font-size:23px; }
+.content{ padding:26px 28px 60px; overflow-y:auto; }
+
+.grid{ display:grid; gap:16px; }
+.grid-4{ grid-template-columns:repeat(4,1fr); }
+.grid-2{ grid-template-columns:1fr 1fr; }
+@media(max-width:900px){ .grid-4{grid-template-columns:repeat(2,1fr);} .grid-2{grid-template-columns:1fr;} .sidebar{width:64px;} .brand .display,.brand .sub{display:none;} nav button span.label{display:none;} }
+
+.stat{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; position:relative; overflow:hidden; }
+.stat::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--blue); }
+.stat.warn::before{ background:var(--amber); }
+.stat.bad::before{ background:var(--red); }
+.stat.ok::before{ background:var(--green); }
+.stat .num{ font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:600; }
+.stat .lbl{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; margin-top:2px; }
+
+.panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:18px; }
+.panel h2{ font-size:18px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.panel h2 .tag{ font-family:'JetBrains Mono',monospace; font-size:10px; background:var(--amber); color:var(--blue-dark); padding:2px 6px; border-radius:3px; }
+
+label{ display:block; font-size:12px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:5px; }
+input,select,textarea{ width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:var(--radius); font-family:'Inter',sans-serif; font-size:14px; background:#fff; color:var(--ink); }
+input:focus,select:focus,textarea:focus{ outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber); }
+.field{ margin-bottom:13px; }
+.row{ display:flex; gap:12px; }
+.row > *{ flex:1; }
+
+button.btn{ font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; border:none; border-radius:var(--radius); padding:10px 18px; }
+.btn-primary{ background:var(--blue); color:#fff; }
+.btn-primary:hover{ background:var(--blue-dark); }
+.btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
+.btn-amber{ background:var(--amber); color:var(--blue-dark); }
+.btn-outline{ background:none; border:1.5px solid var(--blue); color:var(--blue); }
+.btn-outline:hover{ background:var(--blue); color:#fff; }
+.btn-danger{ background:none; color:var(--red); border:1.5px solid var(--red); }
+.btn-sm{ padding:6px 12px; font-size:12.5px; }
+
+table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+th{ text-align:left; padding:9px 10px; background:var(--blue-dark); color:#E7EEF4; font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase; font-size:11.5px; letter-spacing:0.03em; }
+th:first-child{ border-radius:5px 0 0 0; } th:last-child{ border-radius:0 5px 0 0; }
+td{ padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+tr:hover td{ background:#F5F8FB; }
+
+.badge{ display:inline-block; padding:3px 9px; border-radius:12px; font-size:11px; font-weight:700; text-transform:uppercase; }
+.badge-baixa{ background:#E1F3EA; color:var(--green); }
+.badge-media{ background:#FDEBD3; color:#B57B12; }
+.badge-alta{ background:#FBE4E4; color:var(--red); }
+.badge-indeterminado{ background:#E8E6E0; color:var(--ink-soft); }
+
+.upload-box{ border:2px dashed var(--line); border-radius:var(--radius); padding:30px; text-align:center; cursor:pointer; background:#F9FBFC; }
+.upload-box:hover{ border-color:var(--blue); }
+.upload-box img{ max-width:100%; max-height:280px; border-radius:var(--radius); }
+.upload-box .hint{ color:var(--ink-soft); font-size:13.5px; }
+
+.result-box{ background:var(--blue-2); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; margin-top:14px; }
+.result-box .row2{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+
+.empty{ text-align:center; padding:40px 20px; color:var(--ink-soft); }
+.empty .display{ font-size:19px; color:var(--ink-soft); margin-bottom:6px; }
+
+.toast{ position:fixed; bottom:20px; right:20px; background:var(--blue-dark); color:#fff; padding:12px 18px; border-radius:var(--radius); font-size:14px; z-index:999; border-left:4px solid var(--amber); box-shadow:0 6px 18px rgba(0,0,0,0.25); display:none; }
+.hidden{ display:none !important; }
+.config-note{ font-size:12.5px; color:var(--ink-soft); background:#FDEBD3; border:1px solid #F0D19A; padding:10px 12px; border-radius:var(--radius); margin-bottom:16px; }
+
+.login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--blue-dark); }
+.login-card{ width:100%; max-width:360px; background:#fff; border-radius:var(--radius); padding:32px 30px; box-shadow:0 20px 50px rgba(0,0,0,0.35); position:relative; overflow:hidden; }
+.login-card::before{ content:''; position:absolute; left:0; top:0; right:0; height:5px; background:var(--amber); }
+.login-card .display{ font-size:26px; color:var(--blue); text-align:center; margin-bottom:2px; }
+.login-card .sub{ font-size:12px; color:var(--ink-soft); text-align:center; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:24px; }
+.login-card .field{ margin-bottom:14px; }
+.login-card button{ width:100%; margin-top:6px; }
+.login-error{ color:var(--red); font-size:13px; margin-top:10px; display:none; }
+.spinner{ display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; margin-right:6px; vertical-align:-2px; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="login-wrap hidden" id="login-screen">
+  <div class="login-card">
+    <div class="display">VistorIA</div>
+    <div class="sub">Diagnóstico de Patologias por IA</div>
+    <form id="form-login">
+      <div class="field"><label>E-mail</label><input id="login-email" type="email" required autocomplete="username"></div>
+      <div class="field"><label>Senha</label><input id="login-senha" type="password" required autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+      <div class="login-error" id="login-error">E-mail ou senha inválidos.</div>
+    </form>
+  </div>
+</div>
+
+<div class="app hidden" id="app-shell">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="display">VistorIA</div>
+      <div class="sub">Diagnóstico por IA</div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-view="dashboard"><span class="icon">▦</span><span class="label">Dashboard</span></button>
+      <button class="nav-btn" data-view="novo"><span class="icon">📷</span><span class="label">Novo Diagnóstico</span></button>
+      <button class="nav-btn" data-view="historico"><span class="icon">☰</span><span class="label">Histórico</span></button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="logout-btn" id="logout-btn">↩ Sair</button>
+      <div class="dev-signature">Foster Engenharia &amp; Construção</div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="blueprint-strip"></div>
+    <div class="topbar"><h1 id="page-title">Dashboard</h1></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ======================================================
+   CONFIGURAÇÃO DO BACKEND — endereço do seu Worker Cloudflare
+   ====================================================== */
+const API_BASE_URL = 'https://vistoria-worker.fosterconstrutora.workers.dev';
+
+let supaOk = false;
+try{ if(!API_BASE_URL.includes('SEU-WORKER')) supaOk = true; }catch(e){ console.error(e); }
+
+async function apiFetch(path, options={}){
+  const token = localStorage.getItem('vst_session');
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if(token) headers['Authorization'] = 'Bearer ' + token;
+  try{
+    const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, data };
+  }catch(e){
+    return { ok: false, status: 0, data: { message: e.message } };
+  }
+}
+
+let usuarioLogado = null;
+let DB = { diagnosticos: [] };
+
+function toast(msg, ok=true){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderLeftColor = ok ? 'var(--amber)' : 'var(--red)';
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=> t.style.display='none', 2800);
+}
+function fmtDate(d){ if(!d) return '-'; const dt = new Date((d||'').replace(' ','T')); if(isNaN(dt)) return d; return dt.toLocaleDateString('pt-BR'); }
+function fmtDateTime(d){ if(!d) return '-'; const dt = new Date((d||'').replace(' ','T')); if(isNaN(dt)) return d; return dt.toLocaleString('pt-BR'); }
+function uid(){ return 'id-'+Math.random().toString(36).slice(2,10); }
+function configNote(){
+  if(supaOk) return '';
+  return `<div class="config-note">⚠ Backend ainda não configurado — edite <span class="mono">API_BASE_URL</span> no topo do arquivo. Rodando em modo demonstração (dados não são salvos).</div>`;
+}
+function badgeGravidade(g){
+  const cls = ['baixa','media','alta'].includes(g) ? g : 'indeterminado';
+  const label = {baixa:'Baixa', media:'Média', alta:'Alta', indeterminado:'Indeterminado'}[cls];
+  return `<span class="badge badge-${cls}">${label}</span>`;
+}
+
+/* ======================================================
+   NAVEGAÇÃO
+   ====================================================== */
+const titles = { dashboard:'Dashboard', novo:'Novo Diagnóstico', historico:'Histórico' };
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('page-title').textContent = titles[btn.dataset.view];
+    render(btn.dataset.view);
+  });
+});
+
+async function loadAll(){
+  if(!supaOk) return;
+  const resp = await apiFetch('/api/diagnosticos');
+  if(resp.ok) DB.diagnosticos = resp.data || [];
+}
+
+async function render(view){
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">Carregando…</div>';
+  await loadAll();
+  if(view === 'dashboard') renderDashboard(el);
+  else if(view === 'novo') renderNovo(el);
+  else if(view === 'historico') renderHistorico(el);
+}
+
+/* ======================================================
+   DASHBOARD
+   ====================================================== */
+function renderDashboard(el){
+  const total = DB.diagnosticos.length;
+  const alta = DB.diagnosticos.filter(d=>d.gravidade==='alta').length;
+  const media = DB.diagnosticos.filter(d=>d.gravidade==='media').length;
+  const estrutural = DB.diagnosticos.filter(d=>d.provavel_estrutural==='sim').length;
+
+  el.innerHTML = `
+    ${configNote()}
+    <div class="grid grid-4" style="margin-bottom:20px;">
+      <div class="stat"><div class="num mono">${total}</div><div class="lbl">Diagnósticos</div></div>
+      <div class="stat bad"><div class="num mono">${alta}</div><div class="lbl">Gravidade alta</div></div>
+      <div class="stat warn"><div class="num mono">${media}</div><div class="lbl">Gravidade média</div></div>
+      <div class="stat bad"><div class="num mono">${estrutural}</div><div class="lbl">Possível estrutural</div></div>
+    </div>
+    <div class="panel">
+      <h2>Diagnósticos recentes</h2>
+      ${DB.diagnosticos.length ? tabelaDiagnosticos(DB.diagnosticos.slice(0,8)) : `<div class="empty"><div class="display">Nenhum diagnóstico ainda</div>Comece um novo diagnóstico pra ver os resultados aqui.</div>`}
+    </div>
+  `;
+}
+
+function tabelaDiagnosticos(list){
+  return `<table><thead><tr><th>Data</th><th>Título</th><th>Obra/Local</th><th>Patologia</th><th>Gravidade</th><th></th></tr></thead><tbody>
+    ${list.map(d=>`<tr>
+      <td class="mono">${fmtDate(d.criado_em)}</td>
+      <td>${d.titulo || '-'}</td>
+      <td>${d.obra_local || '-'}</td>
+      <td>${d.patologia_tipo || '-'}</td>
+      <td>${badgeGravidade(d.gravidade)}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="verDiagnostico('${d.id}')">Ver</button></td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+/* ======================================================
+   NOVO DIAGNÓSTICO
+   ====================================================== */
+let imagemAtual = null; // base64 sem prefixo data:
+let resultadoIA = null;
+
+function renderNovo(el){
+  imagemAtual = null; resultadoIA = null;
+  el.innerHTML = `
+    ${configNote()}
+    <div class="panel">
+      <h2>1. Foto da patologia</h2>
+      <div class="upload-box" id="upload-box" onclick="document.getElementById('input-foto').click()">
+        <div id="upload-placeholder">
+          <div style="font-size:32px; margin-bottom:8px;">📷</div>
+          <div class="hint">Clique para escolher ou tirar uma foto da trinca, infiltração, fissura, etc.</div>
+        </div>
+        <img id="preview-img" class="hidden">
+      </div>
+      <input type="file" id="input-foto" accept="image/*" capture="environment" class="hidden">
+    </div>
+
+    <div class="panel">
+      <h2>2. Identificação</h2>
+      <div class="row">
+        <div class="field"><label>Título / Referência</label><input id="novo-titulo" placeholder="Ex: Trinca parede sala - Bloco B"></div>
+        <div class="field"><label>Obra / Local</label><input id="novo-local" placeholder="Ex: Residencial Jardim das Flores"></div>
+      </div>
+      <div class="field"><label>Endereço (opcional)</label><input id="novo-endereco" placeholder="Endereço da obra"></div>
+    </div>
+
+    <div style="margin-bottom:18px;">
+      <button class="btn btn-primary" id="btn-analisar" disabled onclick="analisarFoto()">Analisar com IA</button>
+    </div>
+
+    <div id="resultado-area"></div>
+  `;
+
+  document.getElementById('input-foto').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      const dataUrl = ev.target.result;
+      imagemAtual = dataUrl.split(',')[1];
+      document.getElementById('upload-placeholder').classList.add('hidden');
+      const img = document.getElementById('preview-img');
+      img.src = dataUrl;
+      img.classList.remove('hidden');
+      document.getElementById('btn-analisar').disabled = false;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function analisarFoto(){
+  if(!imagemAtual){ toast('Escolha uma foto primeiro', false); return; }
+  if(!supaOk){ toast('Configure o backend para usar a IA', false); return; }
+
+  const btn = document.getElementById('btn-analisar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analisando...';
+
+  const resp = await apiFetch('/api/analisar', { method:'POST', body: JSON.stringify({ imagem_base64: imagemAtual }) });
+
+  btn.disabled = false;
+  btn.textContent = 'Analisar com IA';
+
+  if(!resp.ok){
+    toast(resp.data?.message || 'Erro ao analisar', false);
+    return;
+  }
+
+  resultadoIA = resp.data;
+  renderResultado();
+}
+
+function renderResultado(){
+  const area = document.getElementById('resultado-area');
+  if(!resultadoIA){ area.innerHTML = ''; return; }
+  area.innerHTML = `
+    <div class="panel">
+      <h2>3. Resultado da IA <span class="tag">triagem preliminar</span></h2>
+      <div class="result-box">
+        <div class="row2">
+          <strong>${resultadoIA.patologia_tipo || '-'}</strong>
+          ${badgeGravidade(resultadoIA.gravidade)}
+        </div>
+        <div style="font-size:13.5px; margin-bottom:8px;"><strong>Possível causa estrutural:</strong> ${resultadoIA.provavel_estrutural || 'indeterminado'}</div>
+        ${resultadoIA.norma_referencia ? `<div style="font-size:12.5px; margin-bottom:8px; color:var(--blue);"><strong>Norma de referência:</strong> ${resultadoIA.norma_referencia}</div>` : ''}
+        <div style="font-size:13.5px; margin-bottom:8px;">${resultadoIA.diagnostico_texto || ''}</div>
+        <div style="font-size:13.5px; color:var(--ink-soft);"><strong>Recomendação:</strong> ${resultadoIA.recomendacao || ''}</div>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Suas observações (opcional)</label><textarea id="novo-obs" rows="3" placeholder="Observações adicionais do engenheiro responsável"></textarea></div>
+      <button class="btn btn-amber" onclick="salvarDiagnostico()">Salvar diagnóstico</button>
+    </div>
+  `;
+}
+
+async function salvarDiagnostico(){
+  const titulo = document.getElementById('novo-titulo').value;
+  const local = document.getElementById('novo-local').value;
+  const endereco = document.getElementById('novo-endereco').value;
+  const obs = document.getElementById('novo-obs')?.value || '';
+
+  const payload = {
+    titulo, obra_local: local, endereco,
+    imagem_base64: imagemAtual,
+    patologia_tipo: resultadoIA.patologia_tipo,
+    gravidade: resultadoIA.gravidade,
+    provavel_estrutural: resultadoIA.provavel_estrutural,
+    norma_referencia: resultadoIA.norma_referencia,
+    diagnostico_texto: resultadoIA.diagnostico_texto,
+    recomendacao: resultadoIA.recomendacao,
+    observacoes: obs,
+    status: 'aberto'
+  };
+
+  const resp = await apiFetch('/api/diagnosticos', { method:'POST', body: JSON.stringify(payload) });
+  if(!resp.ok){ toast(resp.data?.message || 'Erro ao salvar', false); return; }
+  toast('Diagnóstico salvo com sucesso');
+  document.querySelector('[data-view="historico"]').click();
+}
+
+/* ======================================================
+   HISTÓRICO
+   ====================================================== */
+function renderHistorico(el){
+  el.innerHTML = `
+    ${configNote()}
+    <div class="panel">
+      <h2>Todos os diagnósticos <span class="tag">${DB.diagnosticos.length}</span></h2>
+      <div class="field"><input id="busca-diag" placeholder="Buscar por título, obra ou patologia..." oninput="filtrarDiagnosticos()"></div>
+      <div id="lista-diag">${DB.diagnosticos.length ? tabelaDiagnosticos(DB.diagnosticos) : `<div class="empty"><div class="display">Nenhum diagnóstico registrado</div></div>`}</div>
+    </div>
+  `;
+}
+
+function filtrarDiagnosticos(){
+  const termo = document.getElementById('busca-diag').value.toLowerCase();
+  const filtrados = DB.diagnosticos.filter(d =>
+    (d.titulo||'').toLowerCase().includes(termo) ||
+    (d.obra_local||'').toLowerCase().includes(termo) ||
+    (d.patologia_tipo||'').toLowerCase().includes(termo)
+  );
+  document.getElementById('lista-diag').innerHTML = filtrados.length ? tabelaDiagnosticos(filtrados) : `<div class="empty"><div class="display">Nenhum resultado encontrado</div></div>`;
+}
+
+async function verDiagnostico(id){
+  const resp = await apiFetch(`/api/diagnosticos/${id}`);
+  if(!resp.ok){ toast('Erro ao carregar diagnóstico', false); return; }
+  const d = resp.data;
+
+  const modalHtml = `
+    <div class="panel">
+      <h2>${d.titulo || 'Diagnóstico'} <span class="tag">${fmtDateTime(d.criado_em)}</span></h2>
+      ${d.imagem_base64 ? `<img src="data:image/jpeg;base64,${d.imagem_base64}" style="max-width:100%; max-height:320px; border-radius:6px; margin-bottom:14px;">` : ''}
+      <div class="row">
+        <div><strong>Obra/Local:</strong> ${d.obra_local || '-'}</div>
+        <div><strong>Endereço:</strong> ${d.endereco || '-'}</div>
+      </div>
+      <div class="result-box" style="margin-top:14px;">
+        <div class="row2"><strong>${d.patologia_tipo || '-'}</strong>${badgeGravidade(d.gravidade)}</div>
+        <div style="font-size:13.5px; margin-bottom:8px;"><strong>Possível causa estrutural:</strong> ${d.provavel_estrutural || 'indeterminado'}</div>
+        ${d.norma_referencia ? `<div style="font-size:12.5px; margin-bottom:8px; color:var(--blue);"><strong>Norma de referência:</strong> ${d.norma_referencia}</div>` : ''}
+        <div style="font-size:13.5px; margin-bottom:8px;">${d.diagnostico_texto || ''}</div>
+        <div style="font-size:13.5px; color:var(--ink-soft);"><strong>Recomendação:</strong> ${d.recomendacao || ''}</div>
+      </div>
+      ${d.observacoes ? `<div style="margin-top:12px; font-size:13.5px;"><strong>Observações:</strong> ${d.observacoes}</div>` : ''}
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button class="btn btn-outline btn-sm" onclick="gerarRelatorioPDF('${d.id}')">Gerar relatório PDF</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirDiagnostico('${d.id}')">Excluir</button>
+        <button class="btn btn-outline btn-sm" onclick="document.querySelector('[data-view=&quot;historico&quot;]').click()">Voltar</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('content').innerHTML = modalHtml;
+  window._diagAtual = d;
+}
+
+async function excluirDiagnostico(id){
+  if(!confirm('Excluir este diagnóstico? Essa ação não pode ser desfeita.')) return;
+  const resp = await apiFetch(`/api/diagnosticos/${id}`, { method:'DELETE' });
+  if(!resp.ok){ toast('Erro ao excluir', false); return; }
+  toast('Diagnóstico excluído');
+  document.querySelector('[data-view="historico"]').click();
+}
+
+function gerarRelatorioPDF(id){
+  const d = window._diagAtual;
+  if(!d) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 20;
+
+  doc.setFillColor(27,75,114);
+  doc.rect(0,0,210,16,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('VISTORIA — RELATÓRIO DE DIAGNÓSTICO PRELIMINAR', 15, 10);
+
+  doc.setTextColor(0,0,0);
+  y = 26;
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text(d.titulo || 'Diagnóstico', 15, y); y+=10;
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  doc.text(`Obra/Local: ${d.obra_local || '-'}`, 15, y); y+=6;
+  doc.text(`Endereço: ${d.endereco || '-'}`, 15, y); y+=6;
+  doc.text(`Data: ${fmtDateTime(d.criado_em)}`, 15, y); y+=6;
+  doc.text(`Responsável: ${d.usuario_email || '-'}`, 15, y); y+=10;
+
+  if(d.imagem_base64){
+    try{ doc.addImage(`data:image/jpeg;base64,${d.imagem_base64}`, 'JPEG', 15, y, 80, 60); }catch(e){ console.error(e); }
+    y += 66;
+  }
+
+  doc.setFont('helvetica','bold'); doc.text(`Patologia identificada: ${d.patologia_tipo || '-'}`, 15, y); y+=6;
+  doc.text(`Gravidade estimada: ${(d.gravidade||'-').toUpperCase()}`, 15, y); y+=6;
+  doc.text(`Possível causa estrutural: ${(d.provavel_estrutural||'-').toUpperCase()}`, 15, y); y+=6;
+  if(d.norma_referencia){ doc.text(`Norma de referência: ${d.norma_referencia}`, 15, y); y+=6; }
+  y+=4;
+
+  doc.setFont('helvetica','bold'); doc.text('Descrição técnica:', 15, y); y+=6;
+  doc.setFont('helvetica','normal');
+  let linhas = doc.splitTextToSize(d.diagnostico_texto || '-', 180);
+  doc.text(linhas, 15, y); y += linhas.length*5 + 6;
+
+  doc.setFont('helvetica','bold'); doc.text('Recomendação:', 15, y); y+=6;
+  doc.setFont('helvetica','normal');
+  linhas = doc.splitTextToSize(d.recomendacao || '-', 180);
+  doc.text(linhas, 15, y); y += linhas.length*5 + 6;
+
+  if(d.observacoes){
+    doc.setFont('helvetica','bold'); doc.text('Observações do responsável:', 15, y); y+=6;
+    doc.setFont('helvetica','normal');
+    linhas = doc.splitTextToSize(d.observacoes, 180);
+    doc.text(linhas, 15, y); y += linhas.length*5 + 6;
+  }
+
+  y += 8;
+  doc.setFontSize(8); doc.setTextColor(120,120,120);
+  const aviso = 'Este relatório é uma triagem preliminar assistida por IA, com apoio conceitual na ABNT NBR 16747 (Inspeção Predial), e não substitui a vistoria presencial e o laudo técnico de um engenheiro responsável.';
+  doc.text(doc.splitTextToSize(aviso, 180), 15, y);
+
+  doc.save(`diagnostico-${(d.titulo||'relatorio').replace(/[^a-z0-9]/gi,'-')}.pdf`);
+  toast('Relatório PDF gerado');
+}
+
+/* ======================================================
+   AUTENTICAÇÃO
+   ====================================================== */
+async function initAuth(){
+  if(!supaOk){
+    document.getElementById('app-shell').classList.remove('hidden');
+    render('dashboard');
+    return;
+  }
+  const resp = await apiFetch('/api/me');
+  if(resp.ok){
+    usuarioLogado = resp.data.email;
+    document.getElementById('app-shell').classList.remove('hidden');
+    render('dashboard');
+  } else {
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+}
+
+document.getElementById('form-login').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const senha = document.getElementById('login-senha').value;
+  const errBox = document.getElementById('login-error');
+  errBox.style.display = 'none';
+
+  const resp = await apiFetch('/api/login', { method:'POST', body: JSON.stringify({ email, password: senha }) });
+  if(!resp.ok){
+    errBox.textContent = resp.data?.message || 'E-mail ou senha inválidos.';
+    errBox.style.display = 'block';
+    return;
+  }
+  localStorage.setItem('vst_session', resp.data.token);
+  usuarioLogado = resp.data.user.email;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  render('dashboard');
+});
+
+document.getElementById('logout-btn').addEventListener('click', async ()=>{
+  if(supaOk) await apiFetch('/api/logout', { method:'POST' });
+  localStorage.removeItem('vst_session');
+  usuarioLogado = null;
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-senha').value = '';
+});
+
+window.addEventListener('error', function(e){
+  console.error('Erro capturado:', e.error || e.message);
+});
+
+initAuth();
+</script>
+</body>
+</html>
