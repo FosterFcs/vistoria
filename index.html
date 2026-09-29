@@ -791,20 +791,32 @@ async function verVistoria(id){
       </div>
       <div style="font-size:13.5px; margin-top:6px;"><strong>Data:</strong> ${fmtDate(v.data_vistoria)}</div>
 
-      ${conteudo.ambientes.map(amb => `
+      ${conteudo.ambientes.map(amb => {
+        const itensSimples = amb.itens.filter(it => !it.imagem_base64 && !it.observacao);
+        const itensDetalhados = amb.itens.filter(it => it.imagem_base64 || it.observacao);
+        return `
         <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line);">
           <h3 style="font-size:15.5px; margin-bottom:8px;">${amb.nome}</h3>
-          ${amb.itens.map(it => `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:6px 0; font-size:13.5px;">
+          ${itensSimples.length ? `
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:4px 16px; margin-bottom:${itensDetalhados.length ? '10px' : '0'};">
+              ${itensSimples.map(it => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:13px;">
+                  <span>${it.item}</span> ${badgeEstado(it.estado)}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          ${itensDetalhados.map(it => `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:6px 0; font-size:13.5px; border-top:1px dashed var(--line);">
               <div>
                 <strong>${it.item}</strong> ${badgeEstado(it.estado)}
                 ${it.observacao ? `<div style="color:var(--ink-soft); font-size:12.5px;">${it.observacao}</div>` : ''}
               </div>
-              ${it.imagem_base64 ? `<img src="data:image/jpeg;base64,${it.imagem_base64}" style="width:60px; height:60px; object-fit:cover; border-radius:4px;">` : ''}
+              ${it.imagem_base64 ? `<img src="data:image/jpeg;base64,${it.imagem_base64}" style="width:60px; height:60px; object-fit:cover; border-radius:4px; flex-shrink:0;">` : ''}
             </div>
           `).join('')}
         </div>
-      `).join('')}
+      `;}).join('')}
 
       ${v.observacoes_gerais ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Observações gerais:</strong> ${v.observacoes_gerais}</div>` : ''}
 
