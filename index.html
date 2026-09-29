@@ -867,7 +867,25 @@ function gerarLaudoPDF(){
     doc.setFont('helvetica','bold'); doc.setFontSize(11);
     doc.text(amb.nome, 17, y+1.5); y+=10;
 
-    amb.itens.forEach(it=>{
+    const itensSimples = amb.itens.filter(it => !it.imagem_base64 && !it.observacao);
+    const itensDetalhados = amb.itens.filter(it => it.imagem_base64 || it.observacao);
+
+    // itens sem foto/observação: layout em 2 colunas, compacto
+    for(let i=0; i<itensSimples.length; i+=2){
+      if(y > 270){ y = novaPagina(); }
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      const it1 = itensSimples[i];
+      doc.text(`•  ${it1.item} — ${labEstado[it1.estado] || it1.estado}`, 17, y);
+      const it2 = itensSimples[i+1];
+      if(it2){
+        doc.text(`•  ${it2.item} — ${labEstado[it2.estado] || it2.estado}`, 107, y);
+      }
+      y += 5.5;
+    }
+    if(itensSimples.length) y += 3;
+
+    // itens com foto ou observação: linha cheia, mais espaço
+    itensDetalhados.forEach(it=>{
       if(y > 260){ y = novaPagina(); }
       doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
       doc.text(`${it.item} — ${labEstado[it.estado] || it.estado}`, 17, y);
