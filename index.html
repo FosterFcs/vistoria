@@ -23,6 +23,7 @@
   --ink-soft:#5B6572;
   --amber:#F5A623;
   --red:#D64545;
+  --orange:#E07B39;
   --green:#2F9E6E;
   --line:#DCE3EA;
   --radius:6px;
@@ -135,6 +136,10 @@ tr:hover td{ background:#F5F8FB; }
 .badge-media{ background:#FDEBD3; color:#B57B12; }
 .badge-alta{ background:#FBE4E4; color:var(--red); }
 .badge-indeterminado{ background:#E8E6E0; color:var(--ink-soft); }
+.badge-baixo{ background:#E1F3EA; color:var(--green); }
+.badge-atencao{ background:#FDEBD3; color:#B57B12; }
+.badge-prioridade{ background:#FBE6D8; color:var(--orange); }
+.badge-critico{ background:#FBE4E4; color:var(--red); }
 
 .upload-box{ border:2px dashed var(--line); border-radius:var(--radius); padding:30px; text-align:center; cursor:pointer; background:#F9FBFC; }
 .upload-box:hover{ border-color:var(--blue); }
@@ -253,9 +258,18 @@ function configNote(){
   return `<div class="config-note">⚠ Backend ainda não configurado — edite <span class="mono">API_BASE_URL</span> no topo do arquivo. Rodando em modo demonstração (dados não são salvos).</div>`;
 }
 function badgeGravidade(g){
-  const cls = ['baixa','media','alta'].includes(g) ? g : 'indeterminado';
-  const label = {baixa:'Baixa', media:'Média', alta:'Alta', indeterminado:'Indeterminado'}[cls];
-  return `<span class="badge badge-${cls}">${label}</span>`;
+  const mapa = {
+    critico:{cls:'critico', label:'🔴 Crítico'},
+    prioridade:{cls:'prioridade', label:'🟠 Prioridade'},
+    atencao:{cls:'atencao', label:'🟡 Atenção'},
+    baixo:{cls:'baixo', label:'🟢 Baixo risco'},
+    // compatibilidade com diagnósticos antigos (3 níveis)
+    alta:{cls:'critico', label:'🔴 Crítico'},
+    media:{cls:'atencao', label:'🟡 Atenção'},
+    baixa:{cls:'baixo', label:'🟢 Baixo risco'}
+  };
+  const info = mapa[g] || {cls:'indeterminado', label:'Indeterminado'};
+  return `<span class="badge badge-${info.cls}">${info.label}</span>`;
 }
 
 /* ======================================================
@@ -450,22 +464,80 @@ async function analisarFoto(){
   renderResultado();
 }
 
+function labelElementoEstrutural(v){
+  const mapa = {
+    estrutural: 'Estrutural', nao_estrutural: 'Não estrutural', revestimento: 'Revestimento/acabamento',
+    sistema_predial: 'Sistema predial', impermeabilizacao: 'Impermeabilização', indeterminado: 'Não foi possível determinar'
+  };
+  return mapa[v] || v || '-';
+}
+
+function renderizarAnaliseIA(r){
+  return `
+      <div class="result-box">
+        <div class="row2">
+          <strong style="font-size:15px;">${r.manifestacao_tipo || '-'}</strong>
+          ${badgeGravidade(r.classificacao_risco)}
+        </div>
+        <div style="font-size:13px; margin-bottom:10px; color:var(--ink-soft);">
+          ${r.elemento_afetado ? `<strong>Elemento:</strong> ${r.elemento_afetado} &nbsp;·&nbsp; ` : ''}
+          ${r.local_aparente ? `<strong>Local:</strong> ${r.local_aparente}` : ''}
+        </div>
+        ${r.caracteristicas_visuais ? `<div style="font-size:13.5px; margin-bottom:6px;">${r.caracteristicas_visuais}</div>` : ''}
+        ${r.extensao_aparente ? `<div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:6px;"><strong>Extensão aparente:</strong> ${r.extensao_aparente}</div>` : ''}
+        ${r.limitacoes_foto ? `<div style="font-size:12px; color:var(--ink-soft); font-style:italic; margin-bottom:8px;">⚠ Limitações da foto: ${r.limitacoes_foto}</div>` : ''}
+      </div>
+
+      ${r.hipoteses_causa && r.hipoteses_causa.length ? `
+        <div style="margin-top:14px;">
+          <strong style="font-size:13.5px;">Hipóteses de causa</strong>
+          ${r.hipoteses_causa.map(h => `
+            <div style="font-size:13px; padding:6px 0; border-bottom:1px dashed var(--line);">
+              <strong>${h.hipotese}</strong>
+              ${h.mecanismo ? `<div style="color:var(--ink-soft); font-size:12.5px;">${h.mecanismo}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <div style="margin-top:14px; font-size:13px;">
+        <strong>Elemento:</strong> ${labelElementoEstrutural(r.elemento_estrutural)}
+        ${r.elemento_estrutural_motivo ? `<div style="color:var(--ink-soft); font-size:12.5px;">${r.elemento_estrutural_motivo}</div>` : ''}
+      </div>
+
+      ${r.investigacoes_recomendadas && r.investigacoes_recomendadas.length ? `
+        <div style="margin-top:14px;">
+          <strong style="font-size:13.5px;">Investigações recomendadas</strong>
+          <ul style="margin:6px 0 0 18px; font-size:13px;">
+            ${r.investigacoes_recomendadas.map(i => `<li>${i}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${r.perguntas_usuario && r.perguntas_usuario.length ? `
+        <div style="margin-top:14px; background:#FFF8E8; border:1px solid #F0DFA8; border-radius:6px; padding:10px 12px;">
+          <strong style="font-size:13px;">Perguntas para refinar a avaliação</strong>
+          <ul style="margin:6px 0 0 18px; font-size:12.5px;">
+            ${r.perguntas_usuario.map(p => `<li>${p}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      <div class="result-box" style="margin-top:14px;">
+        ${r.diagnostico_hipotese_principal ? `<div style="font-size:13.5px; margin-bottom:6px;"><strong>Hipótese principal:</strong> ${r.diagnostico_hipotese_principal}</div>` : ''}
+        ${r.diagnostico_medidas ? `<div style="font-size:13.5px;"><strong>Medidas preliminares:</strong> ${r.diagnostico_medidas}</div>` : ''}
+        ${r.norma_referencia ? `<div style="font-size:12.5px; margin-top:8px; color:var(--blue);"><strong>Norma de referência:</strong> ${r.norma_referencia}</div>` : ''}
+      </div>
+  `;
+}
+
 function renderResultado(){
   const area = document.getElementById('resultado-area');
   if(!resultadoIA){ area.innerHTML = ''; return; }
   area.innerHTML = `
     <div class="panel">
-      <h2>3. Resultado da IA <span class="tag">triagem preliminar</span></h2>
-      <div class="result-box">
-        <div class="row2">
-          <strong>${resultadoIA.patologia_tipo || '-'}</strong>
-          ${badgeGravidade(resultadoIA.gravidade)}
-        </div>
-        <div style="font-size:13.5px; margin-bottom:8px;"><strong>Possível causa estrutural:</strong> ${resultadoIA.provavel_estrutural || 'indeterminado'}</div>
-        ${resultadoIA.norma_referencia ? `<div style="font-size:12.5px; margin-bottom:8px; color:var(--blue);"><strong>Norma de referência:</strong> ${resultadoIA.norma_referencia}</div>` : ''}
-        <div style="font-size:13.5px; margin-bottom:8px;">${resultadoIA.diagnostico_texto || ''}</div>
-        <div style="font-size:13.5px; color:var(--ink-soft);"><strong>Recomendação:</strong> ${resultadoIA.recomendacao || ''}</div>
-      </div>
+      <h2>3. Avaliação técnica preliminar <span class="tag">assistida por IA</span></h2>
+      ${renderizarAnaliseIA(resultadoIA)}
       <div class="field" style="margin-top:14px;"><label>Suas observações (opcional)</label><textarea id="novo-obs" rows="3" placeholder="Observações adicionais do engenheiro responsável"></textarea></div>
       <button class="btn btn-amber" onclick="salvarDiagnostico()">Salvar diagnóstico</button>
     </div>
@@ -477,18 +549,20 @@ async function salvarDiagnostico(){
   const local = document.getElementById('novo-local').value;
   const endereco = document.getElementById('novo-endereco').value;
   const obs = document.getElementById('novo-obs')?.value || '';
+  const r = resultadoIA;
 
   const payload = {
     titulo, obra_local: local, endereco,
     imagem_base64: imagemAtual,
-    patologia_tipo: resultadoIA.patologia_tipo,
-    gravidade: resultadoIA.gravidade,
-    provavel_estrutural: resultadoIA.provavel_estrutural,
-    norma_referencia: resultadoIA.norma_referencia,
-    diagnostico_texto: resultadoIA.diagnostico_texto,
-    recomendacao: resultadoIA.recomendacao,
+    patologia_tipo: r.manifestacao_tipo,
+    gravidade: r.classificacao_risco,
+    provavel_estrutural: labelElementoEstrutural(r.elemento_estrutural),
+    norma_referencia: r.norma_referencia,
+    diagnostico_texto: r.caracteristicas_visuais || r.diagnostico_hipotese_principal || '',
+    recomendacao: r.diagnostico_medidas || '',
     observacoes: obs,
-    status: 'aberto'
+    status: 'aberto',
+    analise_json: JSON.stringify(r)
   };
 
   const resp = await apiFetch('/api/diagnosticos', { method:'POST', body: JSON.stringify(payload) });
@@ -954,6 +1028,19 @@ async function verDiagnostico(id){
   const resp = await apiFetch(`/api/diagnosticos/${id}`);
   if(!resp.ok){ toast('Erro ao carregar diagnóstico', false); return; }
   const d = resp.data;
+  let analise = null;
+  if(d.analise_json){
+    try{ analise = JSON.parse(d.analise_json); }catch(e){ analise = null; }
+  }
+
+  const blocoAnalise = analise ? renderizarAnaliseIA(analise) : `
+      <div class="result-box">
+        <div class="row2"><strong>${d.patologia_tipo || '-'}</strong>${badgeGravidade(d.gravidade)}</div>
+        <div style="font-size:13.5px; margin-bottom:8px;"><strong>Possível causa estrutural:</strong> ${d.provavel_estrutural || 'indeterminado'}</div>
+        ${d.norma_referencia ? `<div style="font-size:12.5px; margin-bottom:8px; color:var(--blue);"><strong>Norma de referência:</strong> ${d.norma_referencia}</div>` : ''}
+        <div style="font-size:13.5px; margin-bottom:8px;">${d.diagnostico_texto || ''}</div>
+        <div style="font-size:13.5px; color:var(--ink-soft);"><strong>Recomendação:</strong> ${d.recomendacao || ''}</div>
+      </div>`;
 
   const modalHtml = `
     <div class="panel">
@@ -963,13 +1050,7 @@ async function verDiagnostico(id){
         <div><strong>Obra/Local:</strong> ${d.obra_local || '-'}</div>
         <div><strong>Endereço:</strong> ${d.endereco || '-'}</div>
       </div>
-      <div class="result-box" style="margin-top:14px;">
-        <div class="row2"><strong>${d.patologia_tipo || '-'}</strong>${badgeGravidade(d.gravidade)}</div>
-        <div style="font-size:13.5px; margin-bottom:8px;"><strong>Possível causa estrutural:</strong> ${d.provavel_estrutural || 'indeterminado'}</div>
-        ${d.norma_referencia ? `<div style="font-size:12.5px; margin-bottom:8px; color:var(--blue);"><strong>Norma de referência:</strong> ${d.norma_referencia}</div>` : ''}
-        <div style="font-size:13.5px; margin-bottom:8px;">${d.diagnostico_texto || ''}</div>
-        <div style="font-size:13.5px; color:var(--ink-soft);"><strong>Recomendação:</strong> ${d.recomendacao || ''}</div>
-      </div>
+      <div style="margin-top:14px;">${blocoAnalise}</div>
       ${d.observacoes ? `<div style="margin-top:12px; font-size:13.5px;"><strong>Observações:</strong> ${d.observacoes}</div>` : ''}
       <div style="margin-top:16px; display:flex; gap:10px;">
         <button class="btn btn-outline btn-sm" onclick="gerarRelatorioPDF('${d.id}')">Gerar relatório PDF</button>
@@ -993,60 +1074,122 @@ async function excluirDiagnostico(id){
 function gerarRelatorioPDF(id){
   const d = window._diagAtual;
   if(!d) return;
+  let analise = null;
+  if(d.analise_json){
+    try{ analise = JSON.parse(d.analise_json); }catch(e){ analise = null; }
+  }
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  let y = 20;
 
-  doc.setFillColor(27,75,114);
-  doc.rect(0,0,210,16,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('VISTORIA — RELATÓRIO DE DIAGNÓSTICO PRELIMINAR', 15, 10);
+  function cabecalho(){
+    doc.setFillColor(27,75,114);
+    doc.rect(0,0,210,16,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text('VISTORIA — AVALIAÇÃO TÉCNICA PRELIMINAR', 15, 10);
+    doc.setTextColor(0,0,0);
+    return 26;
+  }
+  function novaPagina(){ doc.addPage(); return cabecalho(); }
+  function checarQuebra(yAtual, limite=265){ return yAtual > limite ? novaPagina() : yAtual; }
+  function tituloSecao(y, texto){
+    y = checarQuebra(y, 260);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(27,75,114);
+    doc.text(texto, 15, y); doc.setTextColor(0,0,0);
+    return y + 6;
+  }
+  function paragrafo(y, texto, opts={}){
+    if(!texto) return y;
+    y = checarQuebra(y);
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal'); doc.setFontSize(opts.size || 9.5);
+    const linhas = doc.splitTextToSize(texto, 180);
+    doc.text(linhas, 15, y);
+    return y + linhas.length * (opts.lh || 4.6) + (opts.gap ?? 4);
+  }
 
-  doc.setTextColor(0,0,0);
-  y = 26;
+  let y = cabecalho();
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
-  doc.text(d.titulo || 'Diagnóstico', 15, y); y+=10;
+  doc.text(d.titulo || 'Diagnóstico', 15, y); y+=9;
 
-  doc.setFont('helvetica','normal'); doc.setFontSize(10);
-  doc.text(`Obra/Local: ${d.obra_local || '-'}`, 15, y); y+=6;
-  doc.text(`Endereço: ${d.endereco || '-'}`, 15, y); y+=6;
-  doc.text(`Data: ${fmtDateTime(d.criado_em)}`, 15, y); y+=6;
-  doc.text(`Responsável: ${d.usuario_email || '-'}`, 15, y); y+=10;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+  doc.text(`Obra/Local: ${d.obra_local || '-'}   ·   Endereço: ${d.endereco || '-'}`, 15, y); y+=5.5;
+  doc.text(`Data: ${fmtDateTime(d.criado_em)}   ·   Responsável: ${d.usuario_email || '-'}`, 15, y); y+=9;
 
   if(d.imagem_base64){
-    try{ doc.addImage(`data:image/jpeg;base64,${d.imagem_base64}`, 'JPEG', 15, y, 80, 60); }catch(e){ console.error(e); }
-    y += 66;
+    try{ doc.addImage(`data:image/jpeg;base64,${d.imagem_base64}`, 'JPEG', 15, y, 75, 56); }catch(e){ console.error(e); }
   }
 
-  doc.setFont('helvetica','bold'); doc.text(`Patologia identificada: ${d.patologia_tipo || '-'}`, 15, y); y+=6;
-  doc.text(`Gravidade estimada: ${(d.gravidade||'-').toUpperCase()}`, 15, y); y+=6;
-  doc.text(`Possível causa estrutural: ${(d.provavel_estrutural||'-').toUpperCase()}`, 15, y); y+=6;
-  if(d.norma_referencia){ doc.text(`Norma de referência: ${d.norma_referencia}`, 15, y); y+=6; }
-  y+=4;
+  const labGravidade = {critico:'🔴 CRÍTICO', prioridade:'🟠 PRIORIDADE', atencao:'🟡 ATENÇÃO', baixo:'🟢 BAIXO RISCO', alta:'ALTA', media:'MÉDIA', baixa:'BAIXA'};
+  const xInfo = d.imagem_base64 ? 98 : 15;
+  let yInfo = d.imagem_base64 ? y : y;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text(`${analise ? (analise.manifestacao_tipo||d.patologia_tipo) : (d.patologia_tipo||'-')}`, xInfo, yInfo); yInfo+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+  doc.text(`Classificação: ${labGravidade[d.gravidade] || (d.gravidade||'-').toUpperCase()}`, xInfo, yInfo); yInfo+=5.5;
+  if(analise?.elemento_afetado){ doc.text(`Elemento: ${analise.elemento_afetado}`, xInfo, yInfo); yInfo+=5.5; }
+  if(analise?.local_aparente){ doc.text(`Local: ${analise.local_aparente}`, xInfo, yInfo); yInfo+=5.5; }
+  doc.text(`Elemento estrutural: ${d.provavel_estrutural || '-'}`, xInfo, yInfo); yInfo+=5.5;
 
-  doc.setFont('helvetica','bold'); doc.text('Descrição técnica:', 15, y); y+=6;
-  doc.setFont('helvetica','normal');
-  let linhas = doc.splitTextToSize(d.diagnostico_texto || '-', 180);
-  doc.text(linhas, 15, y); y += linhas.length*5 + 6;
+  y = Math.max(y + (d.imagem_base64 ? 62 : 0), yInfo) + 4;
 
-  doc.setFont('helvetica','bold'); doc.text('Recomendação:', 15, y); y+=6;
-  doc.setFont('helvetica','normal');
-  linhas = doc.splitTextToSize(d.recomendacao || '-', 180);
-  doc.text(linhas, 15, y); y += linhas.length*5 + 6;
+  if(analise){
+    if(analise.caracteristicas_visuais){
+      y = tituloSecao(y, '1. CARACTERÍSTICAS OBSERVADAS');
+      y = paragrafo(y, analise.caracteristicas_visuais);
+    }
+    if(analise.extensao_aparente || analise.limitacoes_foto){
+      y = paragrafo(y, analise.extensao_aparente ? `Extensão aparente: ${analise.extensao_aparente}` : '', {size:9});
+      y = paragrafo(y, analise.limitacoes_foto ? `Limitações da fotografia: ${analise.limitacoes_foto}` : '', {size:8.5});
+    }
+
+    if(analise.hipoteses_causa?.length){
+      y = tituloSecao(y, '2. HIPÓTESES DE CAUSA');
+      analise.hipoteses_causa.forEach(h=>{
+        y = paragrafo(y, `• ${h.hipotese}${h.mecanismo ? ' — ' + h.mecanismo : ''}`, {gap:2});
+      });
+      y += 3;
+    }
+
+    y = tituloSecao(y, '3. ELEMENTO ESTRUTURAL/NÃO ESTRUTURAL');
+    y = paragrafo(y, `${labelElementoEstrutural(analise.elemento_estrutural)}${analise.elemento_estrutural_motivo ? ' — ' + analise.elemento_estrutural_motivo : ''}`);
+
+    if(analise.investigacoes_recomendadas?.length){
+      y = tituloSecao(y, '4. INVESTIGAÇÕES RECOMENDADAS');
+      analise.investigacoes_recomendadas.forEach(i=>{ y = paragrafo(y, `• ${i}`, {gap:2}); });
+      y += 3;
+    }
+
+    if(analise.perguntas_usuario?.length){
+      y = tituloSecao(y, '5. PERGUNTAS PARA REFINAR A AVALIAÇÃO');
+      analise.perguntas_usuario.forEach(p=>{ y = paragrafo(y, `• ${p}`, {gap:2, size:9}); });
+      y += 3;
+    }
+
+    y = tituloSecao(y, '6. DIAGNÓSTICO PRELIMINAR');
+    y = paragrafo(y, analise.diagnostico_hipotese_principal ? `Hipótese principal: ${analise.diagnostico_hipotese_principal}` : '');
+    y = paragrafo(y, analise.diagnostico_medidas ? `Medidas preliminares: ${analise.diagnostico_medidas}` : '');
+    if(analise.norma_referencia){ y = paragrafo(y, `Norma de referência: ${analise.norma_referencia}`, {size:9, bold:true}); }
+  } else {
+    y = tituloSecao(y, 'DESCRIÇÃO TÉCNICA');
+    y = paragrafo(y, d.diagnostico_texto || '-');
+    y = tituloSecao(y, 'RECOMENDAÇÃO');
+    y = paragrafo(y, d.recomendacao || '-');
+  }
 
   if(d.observacoes){
-    doc.setFont('helvetica','bold'); doc.text('Observações do responsável:', 15, y); y+=6;
-    doc.setFont('helvetica','normal');
-    linhas = doc.splitTextToSize(d.observacoes, 180);
-    doc.text(linhas, 15, y); y += linhas.length*5 + 6;
+    y = tituloSecao(y, 'OBSERVAÇÕES DO RESPONSÁVEL');
+    y = paragrafo(y, d.observacoes);
   }
 
-  y += 8;
+  y = checarQuebra(y, 250);
+  y += 6;
   doc.setFontSize(8); doc.setTextColor(120,120,120);
-  const aviso = 'Este relatório é uma triagem preliminar assistida por IA, com apoio conceitual na ABNT NBR 16747 (Inspeção Predial), e não substitui a vistoria presencial e o laudo técnico de um engenheiro responsável.';
-  doc.text(doc.splitTextToSize(aviso, 180), 15, y);
-  y += doc.splitTextToSize(aviso, 180).length*4 + 8;
+  const aviso = 'Este relatório é uma avaliação técnica PRELIMINAR assistida por IA, com apoio conceitual em normas ABNT (NBR 16747 e outras aplicáveis). Não é um diagnóstico conclusivo nem substitui a vistoria presencial e o laudo técnico de um engenheiro responsável habilitado.';
+  const linhasAviso = doc.splitTextToSize(aviso, 180);
+  doc.text(linhasAviso, 15, y);
+  y += linhasAviso.length*4 + 8;
+  y = checarQuebra(y, 270);
   desenharRodapeDesenvolvedor(doc, y);
 
   doc.save(`diagnostico-${(d.titulo||'relatorio').replace(/[^a-z0-9]/gi,'-')}.pdf`);
