@@ -166,6 +166,12 @@ tr:hover td{ background:#F5F8FB; }
 .login-error{ color:var(--red); font-size:13px; margin-top:10px; display:none; }
 .spinner{ display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; margin-right:6px; vertical-align:-2px; }
 @keyframes spin{ to{ transform:rotate(360deg); } }
+
+.btn-whats{ background:#25D366; color:#fff; border:none; }
+.btn-whats:hover{ background:#1DA851; }
+.sig-canvas{ display:block; width:100%; height:150px; background:#fff; border:1.5px dashed #B9C3CD; border-radius:var(--radius); touch-action:none; cursor:crosshair; }
+.sig-actions{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px; font-size:12px; color:var(--ink-soft); }
+.topbar-actions{ display:flex; gap:8px; align-items:center; }
 </style>
 </head>
 <body>
@@ -203,7 +209,7 @@ tr:hover td{ background:#F5F8FB; }
   </div>
   <div class="main">
     <div class="blueprint-strip"></div>
-    <div class="topbar"><h1 id="page-title">Dashboard</h1></div>
+    <div class="topbar"><h1 id="page-title">Dashboard</h1><div class="topbar-actions"><button class="btn btn-outline btn-sm" id="btn-perfil" onclick="abrirPerfil()">👤 Meu perfil</button></div></div>
     <div class="content" id="content"></div>
   </div>
 </div>
@@ -250,8 +256,16 @@ function toast(msg, ok=true){
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(()=> t.style.display='none', 2800);
 }
-function fmtDate(d){ if(!d) return '-'; const dt = new Date((d||'').replace(' ','T')); if(isNaN(dt)) return d; return dt.toLocaleDateString('pt-BR'); }
-function fmtDateTime(d){ if(!d) return '-'; const dt = new Date((d||'').replace(' ','T')); if(isNaN(dt)) return d; return dt.toLocaleString('pt-BR'); }
+// Datas: "2026-10-09" (só o dia) não pode passar pelo fuso, senão no Brasil vira o dia anterior.
+// "2026-10-09 21:00:00" (criado_em do D1) está em UTC e é convertido para o horário local.
+function parseData(d){
+  const s = String(d || '').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){ const p = s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return new Date(s.replace(' ','T') + 'Z');
+  return new Date(s);
+}
+function fmtDate(d){ if(!d) return '-'; const dt = parseData(d); if(isNaN(dt)) return d; return dt.toLocaleDateString('pt-BR'); }
+function fmtDateTime(d){ if(!d) return '-'; const dt = parseData(d); if(isNaN(dt)) return d; return dt.toLocaleString('pt-BR'); }
 function uid(){ return 'id-'+Math.random().toString(36).slice(2,10); }
 function configNote(){
   if(supaOk) return '';
@@ -275,7 +289,7 @@ function badgeGravidade(g){
 /* ======================================================
    NAVEGAÇÃO
    ====================================================== */
-const titles = { dashboard:'Dashboard', novo:'Diagnóstico IA', vistoria:'Vistoria Completa', historico:'Histórico', usuarios:'Usuários' };
+const titles = { dashboard:'Dashboard', novo:'Diagnóstico IA', vistoria:'Vistoria Completa', historico:'Histórico', usuarios:'Usuários', perfil:'Meu perfil' };
 document.querySelectorAll('.nav-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -302,6 +316,7 @@ async function render(view){
   else if(view === 'vistoria') renderVistoriaCompleta(el);
   else if(view === 'historico') renderHistorico(el);
   else if(view === 'usuarios') renderUsuarios(el);
+  else if(view === 'perfil') renderPerfil(el);
 }
 
 /* ======================================================
@@ -309,12 +324,17 @@ async function render(view){
    ====================================================== */
 function renderDashboard(el){
   const total = DB.diagnosticos.length;
-  const alta = DB.diagnosticos.filter(d=>d.gravidade==='alta').length;
-  const media = DB.diagnosticos.filter(d=>d.gravidade==='media').length;
+  const alta = DB.diagnosticos.filter(d=>['alta','critico','prioridade'].includes(d.gravidade)).length;
+  const media = DB.diagnosticos.filter(d=>['media','atencao'].includes(d.gravidade)).length;
   const totalVistorias = DB.vistorias.length;
 
   el.innerHTML = `
     ${configNote()}
+    ${perfilPreenchido() ? '' : `<div class="panel" style="border-left:4px solid var(--amber);">
+      <h2>Coloque a sua marca nos laudos</h2>
+      <div style="font-size:13.5px; margin-bottom:12px;">Cadastre nome, registro (CREA/CAU), logo e assinatura. Tudo isso passa a sair no cabeçalho e no final de cada PDF que você gerar.</div>
+      <button class="btn btn-primary btn-sm" onclick="abrirPerfil()">Configurar meu perfil</button>
+    </div>`}
     <div class="grid grid-4" style="margin-bottom:20px;">
       <div class="stat"><div class="num mono">${total}</div><div class="lbl">Diagnósticos IA</div></div>
       <div class="stat bad"><div class="num mono">${alta}</div><div class="lbl">Gravidade alta</div></div>
@@ -630,6 +650,15 @@ function renderVistoriaCompleta(el){
       <textarea id="vc-obs-gerais" rows="3" placeholder="Observações finais sobre o imóvel, resumo geral, etc."></textarea>
     </div>
 
+    <div class="panel">
+      <h2>4. Assinaturas <span class="tag">opcional</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Colete na tela do aparelho. As assinaturas entram no PDF do laudo, com data e hora.</div>
+      <div class="row">
+        <div class="field"><label>Vistoriador</label>${htmlAssinatura('ass-vist')}</div>
+        <div class="field"><label>Cliente / Locatário</label>${htmlAssinatura('ass-cli')}</div>
+      </div>
+    </div>
+
     <input type="file" id="vc-input-camera" accept="image/*" capture="environment" class="hidden">
     <input type="file" id="vc-input-galeria" accept="image/*" class="hidden">
 
@@ -642,6 +671,8 @@ function renderVistoriaCompleta(el){
   document.getElementById('vc-data').addEventListener('input', e=> vistoriaAtual.data_vistoria = e.target.value);
   document.getElementById('vc-endereco').addEventListener('input', e=> vistoriaAtual.imovel_endereco = e.target.value);
   document.getElementById('vc-cliente').addEventListener('input', e=> vistoriaAtual.cliente_nome = e.target.value);
+  iniciarAssinatura('ass-vist', lerPerfil().assinatura || null);
+  iniciarAssinatura('ass-cli', null);
 }
 
 function adicionarAmbiente(nome){
@@ -748,6 +779,12 @@ async function salvarVistoriaCompleta(){
   if(!vistoriaAtual.ambientes.length){ toast('Adicione ao menos um ambiente', false); return; }
 
   const obsGerais = document.getElementById('vc-obs-gerais').value;
+  const perfil = lerPerfil();
+  const assinaturas = {};
+  const sigV = obterAssinatura('ass-vist');
+  if(sigV) assinaturas.vistoriador = { img:sigV.img, w:sigV.w, h:sigV.h, nome: perfil.nome || perfil.empresa || usuarioLogado || '', data: new Date().toISOString() };
+  const sigC = obterAssinatura('ass-cli');
+  if(sigC) assinaturas.cliente = { img:sigC.img, w:sigC.w, h:sigC.h, nome: vistoriaAtual.cliente_nome || '', data: new Date().toISOString() };
   const payload = {
     categoria: vistoriaAtual.categoria,
     titulo: vistoriaAtual.titulo,
@@ -755,7 +792,7 @@ async function salvarVistoriaCompleta(){
     cliente_nome: vistoriaAtual.cliente_nome,
     data_vistoria: vistoriaAtual.data_vistoria,
     observacoes_gerais: obsGerais,
-    conteudo_json: JSON.stringify({ ambientes: vistoriaAtual.ambientes }),
+    conteudo_json: JSON.stringify({ ambientes: vistoriaAtual.ambientes, assinaturas }),
     status: 'concluida'
   };
 
@@ -893,9 +930,11 @@ async function verVistoria(id){
       `;}).join('')}
 
       ${v.observacoes_gerais ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Observações gerais:</strong> ${v.observacoes_gerais}</div>` : ''}
+      ${(conteudo.assinaturas && (conteudo.assinaturas.vistoriador || conteudo.assinaturas.cliente)) ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Assinaturas coletadas:</strong> ${conteudo.assinaturas.vistoriador ? '✔ Vistoriador' : ''} ${conteudo.assinaturas.cliente ? '✔ Cliente' : ''}</div>` : ''}
 
       <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="gerarLaudoPDF()">Gerar laudo PDF</button>
+        <button class="btn btn-whats btn-sm" onclick="gerarLaudoPDF('whatsapp')">Enviar pelo WhatsApp</button>
         <button class="btn btn-danger btn-sm" onclick="excluirVistoria('${v.id}')">Excluir</button>
         <button class="btn btn-outline btn-sm" onclick="document.querySelector('[data-view=&quot;historico&quot;]').click()">Voltar</button>
       </div>
@@ -912,12 +951,13 @@ async function excluirVistoria(id){
   document.querySelector('[data-view="historico"]').click();
 }
 
-function gerarLaudoPDF(){
+function gerarLaudoPDF(modo){
   const v = window._vistAtual;
   const conteudo = window._vistConteudo;
   if(!v || !conteudo) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  const perfil = lerPerfil();
 
   const labEstado = {bom:'Bom', regular:'Regular', ruim:'Ruim', nao_aplicavel:'Não aplicável'};
 
@@ -926,13 +966,7 @@ function gerarLaudoPDF(){
     return desenharCabecalhoLaudo();
   }
   function desenharCabecalhoLaudo(){
-    doc.setFillColor(224,0,0);
-    doc.rect(0,0,210,16,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold'); doc.setFontSize(12);
-    doc.text('VISTORIA — LAUDO DE VISTORIA', 15, 10);
-    doc.setTextColor(0,0,0);
-    return 26;
+    return cabecalhoMarca(doc, 'LAUDO DE VISTORIA', 'VISTORIA — LAUDO DE VISTORIA');
   }
 
   let y = desenharCabecalhoLaudo();
@@ -944,7 +978,7 @@ function gerarLaudoPDF(){
   doc.text(`Endereço: ${v.imovel_endereco || '-'}`, 15, y); y+=6;
   doc.text(`Cliente/Responsável: ${v.cliente_nome || '-'}`, 15, y); y+=6;
   doc.text(`Data da vistoria: ${fmtDate(v.data_vistoria)}`, 15, y); y+=6;
-  doc.text(`Vistoriador: ${v.usuario_email || '-'}`, 15, y); y+=10;
+  doc.text(`Vistoriador: ${perfil.nome || perfil.empresa || v.usuario_email || '-'}${perfil.registro ? '  ·  ' + perfil.registro : ''}`, 15, y); y+=10;
 
   conteudo.ambientes.forEach(amb=>{
     if(y > 250){ y = novaPagina(); }
@@ -999,19 +1033,18 @@ function gerarLaudoPDF(){
     doc.text(linhasG, 15, y); y += linhasG.length*4.5 + 8;
   }
 
-  if(y > 260){ y = novaPagina(); }
-  y += 10;
-  doc.setFontSize(9);
-  doc.text('_______________________________', 15, y);
-  doc.text('_______________________________', 115, y); y+=5;
-  doc.text('Vistoriador responsável', 15, y);
-  doc.text('Cliente / Locatário / Responsável', 115, y);
-  y += 14;
+  if(y > 222){ y = novaPagina(); }
+  y += 8;
+  y = desenharAssinaturas(doc, y, v, conteudo, perfil);
 
-  desenharRodapeDesenvolvedor(doc, y);
+  if(y > 268){ y = novaPagina(); }
+  rodapeMarca(doc, y);
+  numerarPaginas(doc);
 
-  doc.save(`vistoria-${(v.titulo||'laudo').replace(/[^a-z0-9]/gi,'-')}.pdf`);
-  toast('Laudo PDF gerado');
+  const nomeArquivo = `vistoria-${(v.titulo||'laudo').replace(/[^a-z0-9]/gi,'-')}.pdf`;
+  const emissor = perfil.nome || perfil.empresa || '';
+  const texto = `Olá! Segue o laudo de vistoria "${v.titulo || 'Vistoria'}"${v.imovel_endereco ? ' — ' + v.imovel_endereco : ''}.${emissor ? '\n' + emissor : ''}`;
+  return entregarPDF(doc, nomeArquivo, modo, texto);
 }
 
 function filtrarDiagnosticos(){
@@ -1052,8 +1085,9 @@ async function verDiagnostico(id){
       </div>
       <div style="margin-top:14px;">${blocoAnalise}</div>
       ${d.observacoes ? `<div style="margin-top:12px; font-size:13.5px;"><strong>Observações:</strong> ${d.observacoes}</div>` : ''}
-      <div style="margin-top:16px; display:flex; gap:10px;">
+      <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="gerarRelatorioPDF('${d.id}')">Gerar relatório PDF</button>
+        <button class="btn btn-whats btn-sm" onclick="gerarRelatorioPDF('${d.id}','whatsapp')">Enviar pelo WhatsApp</button>
         <button class="btn btn-danger btn-sm" onclick="excluirDiagnostico('${d.id}')">Excluir</button>
         <button class="btn btn-outline btn-sm" onclick="document.querySelector('[data-view=&quot;historico&quot;]').click()">Voltar</button>
       </div>
@@ -1071,7 +1105,7 @@ async function excluirDiagnostico(id){
   document.querySelector('[data-view="historico"]').click();
 }
 
-function gerarRelatorioPDF(id){
+function gerarRelatorioPDF(id, modo){
   const d = window._diagAtual;
   if(!d) return;
   let analise = null;
@@ -1083,13 +1117,7 @@ function gerarRelatorioPDF(id){
   const doc = new jsPDF();
 
   function cabecalho(){
-    doc.setFillColor(224,0,0);
-    doc.rect(0,0,210,16,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold'); doc.setFontSize(12);
-    doc.text('VISTORIA — AVALIAÇÃO TÉCNICA PRELIMINAR', 15, 10);
-    doc.setTextColor(0,0,0);
-    return 26;
+    return cabecalhoMarca(doc, 'AVALIAÇÃO TÉCNICA PRELIMINAR', 'VISTORIA — AVALIAÇÃO TÉCNICA PRELIMINAR');
   }
   function novaPagina(){ doc.addPage(); return cabecalho(); }
   function checarQuebra(yAtual, limite=265){ return yAtual > limite ? novaPagina() : yAtual; }
@@ -1108,25 +1136,38 @@ function gerarRelatorioPDF(id){
     return y + linhas.length * (opts.lh || 4.6) + (opts.gap ?? 4);
   }
 
+  const perfil = lerPerfil();
   let y = cabecalho();
   doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text(d.titulo || 'Diagnóstico', 15, y); y+=9;
 
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
   doc.text(`Obra/Local: ${d.obra_local || '-'}   ·   Endereço: ${d.endereco || '-'}`, 15, y); y+=5.5;
-  doc.text(`Data: ${fmtDateTime(d.criado_em)}   ·   Responsável: ${d.usuario_email || '-'}`, 15, y); y+=9;
+  doc.text(`Data: ${fmtDateTime(d.criado_em)}   ·   Responsável: ${perfil.nome || perfil.empresa || d.usuario_email || '-'}`, 15, y); y+=9;
 
   if(d.imagem_base64){
     try{ doc.addImage(`data:image/jpeg;base64,${d.imagem_base64}`, 'JPEG', 15, y, 75, 56); }catch(e){ console.error(e); }
   }
 
-  const labGravidade = {critico:'🔴 CRÍTICO', prioridade:'🟠 PRIORIDADE', atencao:'🟡 ATENÇÃO', baixo:'🟢 BAIXO RISCO', alta:'ALTA', media:'MÉDIA', baixa:'BAIXA'};
+  // PDF não desenha emoji: usa texto + bolinha colorida
+  const labGravidade = {critico:'CRÍTICO', prioridade:'PRIORIDADE', atencao:'ATENÇÃO', baixo:'BAIXO RISCO', alta:'ALTA', media:'MÉDIA', baixa:'BAIXA'};
+  const corGrav = {critico:[214,69,69], alta:[214,69,69], prioridade:[224,123,57], atencao:[245,166,35], media:[245,166,35], baixo:[47,158,110], baixa:[47,158,110]};
   const xInfo = d.imagem_base64 ? 98 : 15;
   let yInfo = d.imagem_base64 ? y : y;
   doc.setFont('helvetica','bold'); doc.setFontSize(10);
   doc.text(`${analise ? (analise.manifestacao_tipo||d.patologia_tipo) : (d.patologia_tipo||'-')}`, xInfo, yInfo); yInfo+=6;
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-  doc.text(`Classificação: ${labGravidade[d.gravidade] || (d.gravidade||'-').toUpperCase()}`, xInfo, yInfo); yInfo+=5.5;
+  {
+    const rotuloG = labGravidade[d.gravidade] || (d.gravidade||'-').toUpperCase();
+    const cG = corGrav[d.gravidade];
+    doc.text('Classificação:', xInfo, yInfo);
+    const wLab = doc.getTextWidth('Classificação: ');
+    if(cG){ doc.setFillColor(cG[0], cG[1], cG[2]); doc.circle(xInfo + wLab + 1.6, yInfo - 1.2, 1.6, 'F'); }
+    doc.setFont('helvetica','bold');
+    doc.text(rotuloG, xInfo + wLab + (cG ? 5 : 0), yInfo);
+    doc.setFont('helvetica','normal');
+    yInfo += 5.5;
+  }
   if(analise?.elemento_afetado){ doc.text(`Elemento: ${analise.elemento_afetado}`, xInfo, yInfo); yInfo+=5.5; }
   if(analise?.local_aparente){ doc.text(`Local: ${analise.local_aparente}`, xInfo, yInfo); yInfo+=5.5; }
   doc.text(`Elemento estrutural: ${d.provavel_estrutural || '-'}`, xInfo, yInfo); yInfo+=5.5;
@@ -1189,11 +1230,14 @@ function gerarRelatorioPDF(id){
   const linhasAviso = doc.splitTextToSize(aviso, 180);
   doc.text(linhasAviso, 15, y);
   y += linhasAviso.length*4 + 8;
-  y = checarQuebra(y, 270);
-  desenharRodapeDesenvolvedor(doc, y);
+  y = checarQuebra(y, 268);
+  rodapeMarca(doc, y);
+  numerarPaginas(doc);
 
-  doc.save(`diagnostico-${(d.titulo||'relatorio').replace(/[^a-z0-9]/gi,'-')}.pdf`);
-  toast('Relatório PDF gerado');
+  const nomeArquivo = `diagnostico-${(d.titulo||'relatorio').replace(/[^a-z0-9]/gi,'-')}.pdf`;
+  const emissor = perfil.nome || perfil.empresa || '';
+  const texto = `Olá! Segue o relatório técnico preliminar "${d.titulo || 'Diagnóstico'}"${d.obra_local ? ' — ' + d.obra_local : ''}.${emissor ? '\n' + emissor : ''}`;
+  return entregarPDF(doc, nomeArquivo, modo, texto);
 }
 
 function desenharRodapeDesenvolvedor(doc, y){
@@ -1203,6 +1247,404 @@ function desenharRodapeDesenvolvedor(doc, y){
   doc.text(`Desenvolvido por ${DESENVOLVEDOR.nome} — ${DESENVOLVEDOR.empresa}`, 15, y); y+=4.5;
   doc.text(`${DESENVOLVEDOR.telefone}  ·  ${DESENVOLVEDOR.email}`, 15, y);
   doc.setTextColor(0,0,0);
+}
+
+/* ======================================================
+   UTILITÁRIOS
+   ====================================================== */
+function esc(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ======================================================
+   PERFIL PROFISSIONAL — marca própria nos laudos
+   Fica salvo no navegador (localStorage), separado por usuário.
+   ====================================================== */
+function chavePerfil(){ return 'vst_perfil_' + (usuarioLogado || 'local'); }
+function lerPerfil(){
+  try{ return JSON.parse(localStorage.getItem(chavePerfil()) || 'null') || {}; }catch(e){ return {}; }
+}
+function gravarPerfil(p){
+  try{ localStorage.setItem(chavePerfil(), JSON.stringify(p)); return true; }catch(e){ console.error(e); return false; }
+}
+function perfilPreenchido(p){
+  p = p || lerPerfil();
+  return !!(p.nome || p.empresa || p.logo);
+}
+
+let _logoPerfil = null;
+
+function abrirPerfil(){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-title').textContent = 'Meu perfil';
+  render('perfil');
+}
+
+function processarLogo(file){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const max = 320;
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * k));
+      const h = Math.max(1, Math.round(img.height * k));
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      let fmt = 'PNG';
+      let dataUrl = c.toDataURL('image/png');
+      if(dataUrl.length > 150000){
+        // logo "pesado" (foto/degradê): vira JPEG com fundo branco
+        const c2 = document.createElement('canvas');
+        c2.width = w; c2.height = h;
+        const x2 = c2.getContext('2d');
+        x2.fillStyle = '#fff'; x2.fillRect(0, 0, w, h);
+        x2.drawImage(img, 0, 0, w, h);
+        fmt = 'JPEG';
+        dataUrl = c2.toDataURL('image/jpeg', 0.85);
+      }
+      URL.revokeObjectURL(url);
+      resolve({ dataUrl, w, h, fmt });
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('imagem inválida')); };
+    img.src = url;
+  });
+}
+
+function lerCamposPerfil(){
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  return { nome:v('pf-nome'), empresa:v('pf-empresa'), registro:v('pf-registro'), telefone:v('pf-telefone'), email:v('pf-email') };
+}
+
+function atualizarPreviaPerfil(){
+  const box = document.getElementById('pf-previa');
+  if(!box) return;
+  const c = lerCamposPerfil();
+  const principal = c.empresa || c.nome || 'Seu nome ou empresa';
+  const linha2 = [c.empresa && c.nome ? c.nome : '', c.registro].filter(Boolean).join(' · ');
+  const contato = [c.telefone, c.email].filter(Boolean).join(' · ');
+  box.innerHTML = `
+    <div style="border:1px solid var(--line); border-radius:6px; overflow:hidden; background:#fff;">
+      <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; flex-wrap:wrap;">
+        ${_logoPerfil ? `<img src="${_logoPerfil.dataUrl}" alt="Logo" style="max-height:44px; max-width:110px; object-fit:contain;">` : ''}
+        <div style="flex:1; min-width:160px;">
+          <div style="font-weight:700; font-size:15px;">${esc(principal)}</div>
+          ${linha2 ? `<div style="font-size:12px; color:var(--ink-soft);">${esc(linha2)}</div>` : ''}
+        </div>
+        ${contato ? `<div style="font-size:12px; color:var(--ink-soft);">${esc(contato)}</div>` : ''}
+      </div>
+      <div style="background:var(--blue); color:#fff; font-size:12px; font-weight:700; padding:6px 14px; letter-spacing:.04em;">LAUDO DE VISTORIA</div>
+    </div>`;
+}
+
+function renderPerfil(el){
+  const p = lerPerfil();
+  _logoPerfil = p.logo || null;
+  el.innerHTML = `
+    <div class="panel">
+      <h2>Marca nos laudos <span class="tag">sai no PDF</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:14px;">Esses dados aparecem no cabeçalho e no rodapé dos seus laudos e relatórios em PDF. Ficam salvos neste aparelho.</div>
+      <div class="row">
+        <div class="field"><label for="pf-nome">Seu nome</label><input id="pf-nome" value="${esc(p.nome)}" placeholder="Ex: Maria Souza"></div>
+        <div class="field"><label for="pf-empresa">Empresa / escritório (opcional)</label><input id="pf-empresa" value="${esc(p.empresa)}" placeholder="Ex: Souza Engenharia"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="pf-registro">Registro profissional</label><input id="pf-registro" value="${esc(p.registro)}" placeholder="Ex: CREA-SP 5069999999"></div>
+        <div class="field"><label for="pf-telefone">Telefone / WhatsApp</label><input id="pf-telefone" value="${esc(p.telefone)}" placeholder="(11) 99999-9999" inputmode="tel"></div>
+      </div>
+      <div class="field"><label for="pf-email">E-mail de contato</label><input id="pf-email" type="email" value="${esc(p.email)}" placeholder="voce@empresa.com.br"></div>
+      <div class="field">
+        <label for="pf-logo">Logo (opcional)</label>
+        <input type="file" id="pf-logo" accept="image/*">
+        <div style="font-size:12px; color:var(--ink-soft); margin-top:4px;">Funciona melhor com fundo transparente ou branco.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Prévia do cabeçalho</h2>
+      <div id="pf-previa"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Minha assinatura <span class="tag">opcional</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Salve uma vez e ela já vem preenchida nas suas vistorias. Você pode refazer quando quiser.</div>
+      ${htmlAssinatura('ass-perfil')}
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary" onclick="salvarPerfil()">Salvar perfil</button>
+      <button type="button" class="btn btn-outline" onclick="removerLogoPerfil()">Remover logo</button>
+    </div>
+  `;
+  iniciarAssinatura('ass-perfil', p.assinatura || null);
+  ['pf-nome','pf-empresa','pf-registro','pf-telefone','pf-email'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', atualizarPreviaPerfil);
+  });
+  document.getElementById('pf-logo').addEventListener('change', async (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    try{ _logoPerfil = await processarLogo(f); atualizarPreviaPerfil(); }
+    catch(err){ toast('Não consegui ler essa imagem', false); }
+  });
+  atualizarPreviaPerfil();
+}
+
+function removerLogoPerfil(){
+  _logoPerfil = null;
+  const inp = document.getElementById('pf-logo');
+  if(inp) inp.value = '';
+  atualizarPreviaPerfil();
+  toast('Logo removido. Toque em Salvar perfil para confirmar.');
+}
+
+function salvarPerfil(){
+  const novo = lerCamposPerfil();
+  if(_logoPerfil) novo.logo = _logoPerfil;
+  const sig = obterAssinatura('ass-perfil');
+  if(sig) novo.assinatura = { img: sig.img, w: sig.w, h: sig.h };
+  if(!gravarPerfil(novo)){ toast('Não consegui salvar neste aparelho (sem espaço?)', false); return; }
+  toast('Perfil salvo');
+}
+
+/* ======================================================
+   ASSINATURA NA TELA (dedo ou mouse)
+   ====================================================== */
+const SIG = {};
+
+function criarPad(canvas){
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  const W = Math.max(200, Math.round(rect.width) || 300);
+  const H = Math.max(100, Math.round(rect.height) || 150);
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.scale(dpr, dpr);
+  ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#0b0b0b'; ctx.fillStyle = '#0b0b0b';
+
+  let desenhando = false, ult = null, traco = false;
+  let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+  const resetBox = ()=>{ minX = 1e9; minY = 1e9; maxX = -1; maxY = -1; };
+  const pos = (e)=>{
+    const r = canvas.getBoundingClientRect();
+    return { x:(e.clientX - r.left) * (W / r.width), y:(e.clientY - r.top) * (H / r.height) };
+  };
+  const marca = (p)=>{ minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); };
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+    desenhando = true; traco = true;
+    ult = pos(e); marca(ult);
+    ctx.beginPath(); ctx.arc(ult.x, ult.y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
+  });
+  canvas.addEventListener('pointermove', (e)=>{
+    if(!desenhando) return;
+    e.preventDefault();
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(ult.x, ult.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    marca(p); ult = p;
+  });
+  const fim = ()=>{ desenhando = false; };
+  canvas.addEventListener('pointerup', fim);
+  canvas.addEventListener('pointercancel', fim);
+
+  return {
+    temTraco: ()=> traco,
+    limpar(){
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      traco = false; resetBox();
+    },
+    // devolve só a área assinada (recortada) em PNG leve
+    exportar(){
+      if(!traco) return null;
+      const m = 6;
+      const sx = Math.max(0, Math.floor((minX - m) * dpr));
+      const sy = Math.max(0, Math.floor((minY - m) * dpr));
+      const ex = Math.min(canvas.width,  Math.ceil((maxX + m) * dpr));
+      const ey = Math.min(canvas.height, Math.ceil((maxY + m) * dpr));
+      const sw = Math.max(1, ex - sx), sh = Math.max(1, ey - sy);
+      const esc2 = Math.min(1, 400 / sw);
+      const ow = Math.max(1, Math.round(sw * esc2)), oh = Math.max(1, Math.round(sh * esc2));
+      const o = document.createElement('canvas');
+      o.width = ow; o.height = oh;
+      o.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, ow, oh);
+      return { img: o.toDataURL('image/png'), w: ow, h: oh };
+    }
+  };
+}
+
+function htmlAssinatura(id){
+  return `<div class="sig-wrap" id="${id}">
+    <div class="sig-saved hidden">
+      <img alt="Assinatura salva" style="max-width:100%; max-height:90px; background:#fff; border:1px solid var(--line); border-radius:6px; padding:6px;">
+      <div style="margin-top:6px;"><button type="button" class="btn btn-outline btn-sm" onclick="refazerAssinatura('${id}')">Refazer assinatura</button></div>
+    </div>
+    <div class="sig-draw">
+      <canvas class="sig-canvas" aria-label="Área para assinar"></canvas>
+      <div class="sig-actions"><span>Assine aqui com o dedo ou o mouse</span><button type="button" class="btn btn-outline btn-sm" onclick="limparAssinatura('${id}')">Limpar</button></div>
+    </div>
+  </div>`;
+}
+function iniciarAssinatura(id, salvo){
+  const wrap = document.getElementById(id);
+  if(!wrap) return;
+  SIG[id] = { salvo: salvo || null, pad: null };
+  if(salvo){
+    wrap.querySelector('.sig-saved img').src = salvo.img;
+    wrap.querySelector('.sig-saved').classList.remove('hidden');
+    wrap.querySelector('.sig-draw').classList.add('hidden');
+  } else {
+    SIG[id].pad = criarPad(wrap.querySelector('.sig-canvas'));
+  }
+}
+function refazerAssinatura(id){
+  const wrap = document.getElementById(id);
+  if(!wrap || !SIG[id]) return;
+  SIG[id].salvo = null;
+  wrap.querySelector('.sig-saved').classList.add('hidden');
+  wrap.querySelector('.sig-draw').classList.remove('hidden');
+  SIG[id].pad = criarPad(wrap.querySelector('.sig-canvas'));
+}
+function limparAssinatura(id){ if(SIG[id] && SIG[id].pad) SIG[id].pad.limpar(); }
+function obterAssinatura(id){
+  const s = SIG[id];
+  if(!s) return null;
+  if(s.salvo) return s.salvo;
+  return s.pad ? s.pad.exportar() : null;
+}
+
+/* ======================================================
+   MARCA NOS PDFs (cabeçalho, rodapé, páginas) + ENVIO
+   ====================================================== */
+function cabecalhoMarca(doc, titulo, tituloPadrao){
+  const p = lerPerfil();
+  if(!perfilPreenchido(p)){
+    // sem perfil: cabeçalho padrão do VistorIA
+    doc.setFillColor(224,0,0);
+    doc.rect(0,0,210,16,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text(tituloPadrao || titulo, 15, 10);
+    doc.setTextColor(0,0,0);
+    return 26;
+  }
+  let x = 15;
+  if(p.logo && p.logo.dataUrl){
+    const maxW = 34, maxH = 15;
+    const k = Math.min(maxW / p.logo.w, maxH / p.logo.h);
+    const w = p.logo.w * k, h = p.logo.h * k;
+    try{ doc.addImage(p.logo.dataUrl, p.logo.fmt || 'PNG', 15, 4 + (maxH - h) / 2, w, h); x = 15 + w + 5; }
+    catch(e){ console.error(e); }
+  }
+  const principal = p.empresa || p.nome || '';
+  const linha2 = [p.empresa && p.nome ? p.nome : '', p.registro].filter(Boolean).join('  ·  ');
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  const wContato = Math.max(doc.getTextWidth(p.telefone || ''), doc.getTextWidth(p.email || ''));
+  const maxLeft = Math.max(40, 195 - wContato - 6 - x);
+
+  if(principal){
+    doc.setTextColor(30,32,35); doc.setFont('helvetica','bold'); doc.setFontSize(12.5);
+    doc.text(doc.splitTextToSize(principal, maxLeft)[0], x, 10);
+  }
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(100,100,100);
+  if(linha2) doc.text(doc.splitTextToSize(linha2, maxLeft)[0], x, 15.5);
+  if(p.telefone) doc.text(p.telefone, 195, 10, { align:'right' });
+  if(p.email) doc.text(p.email, 195, 15.5, { align:'right' });
+
+  doc.setFillColor(224,0,0); doc.rect(0, 22, 210, 8, 'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text(titulo, 15, 27.3);
+  doc.setTextColor(0,0,0);
+  return 40;
+}
+
+function rodapeMarca(doc, y){
+  const p = lerPerfil();
+  if(!perfilPreenchido(p)){ desenharRodapeDesenvolvedor(doc, y); return; }
+  doc.setDrawColor(220,220,220); doc.setLineWidth(0.2);
+  doc.line(15, y, 195, y); y += 5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
+  const emissor = [p.nome || p.empresa, p.registro].filter(Boolean).join('  ·  ');
+  if(emissor){ doc.text(`Emitido por ${emissor}`, 15, y); y += 4.5; }
+  const contato = [p.telefone, p.email].filter(Boolean).join('  ·  ');
+  if(contato){ doc.text(contato, 15, y); y += 4.5; }
+  doc.setFontSize(7); doc.setTextColor(150,150,150);
+  doc.text(`Gerado com VistorIA — ${DESENVOLVEDOR.empresa}`, 15, y);
+  doc.setTextColor(0,0,0);
+}
+
+function numerarPaginas(doc){
+  const n = doc.getNumberOfPages();
+  for(let i = 1; i <= n; i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
+    doc.text(`Página ${i} de ${n}`, 195, 291, { align:'right' });
+  }
+  doc.setTextColor(0,0,0);
+}
+
+// Bloco de assinaturas do laudo: usa a assinatura da tela quando existe;
+// sem ela, deixa a linha em branco para assinar à mão.
+function desenharAssinaturas(doc, y, v, conteudo, perfil){
+  const ass = conteudo.assinaturas || {};
+  const altSig = 22;
+  const colunas = [
+    { x:15,  sig: ass.vistoriador,
+      nome: (ass.vistoriador && ass.vistoriador.nome) || perfil.nome || perfil.empresa || '',
+      papel: 'Vistoriador responsável', extra: perfil.registro || '' },
+    { x:115, sig: ass.cliente,
+      nome: (ass.cliente && ass.cliente.nome) || v.cliente_nome || '',
+      papel: 'Cliente / Locatário / Responsável', extra: '' }
+  ];
+  colunas.forEach(c=>{
+    if(c.sig && c.sig.img){
+      const k = Math.min(70 / c.sig.w, altSig / c.sig.h);
+      const w = c.sig.w * k, h = c.sig.h * k;
+      try{ doc.addImage(c.sig.img, 'PNG', c.x + (80 - w) / 2, y + altSig - h, w, h); }catch(e){ console.error(e); }
+    }
+    doc.setDrawColor(60,60,60); doc.setLineWidth(0.3);
+    doc.line(c.x, y + altSig + 1, c.x + 80, y + altSig + 1);
+    let yy = y + altSig + 5.5;
+    doc.setTextColor(0,0,0);
+    if(c.nome){ doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.text(doc.splitTextToSize(c.nome, 80)[0], c.x, yy); yy += 4.2; }
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(c.papel, c.x, yy); yy += 4.2;
+    if(c.extra){ doc.text(c.extra, c.x, yy); yy += 4.2; }
+    if(c.sig && c.sig.data){
+      doc.setFontSize(7); doc.setTextColor(130,130,130);
+      doc.text(`Assinado em ${fmtDateTime(c.sig.data)}`, c.x, yy);
+      doc.setTextColor(0,0,0);
+    }
+  });
+  return y + altSig + 24;
+}
+
+// Entrega o PDF: baixa, ou abre o compartilhamento do celular (WhatsApp).
+async function entregarPDF(doc, nome, modo, texto){
+  if(modo !== 'whatsapp'){
+    doc.save(nome);
+    toast('PDF gerado');
+    return;
+  }
+  try{
+    const arquivo = new File([doc.output('blob')], nome, { type:'application/pdf' });
+    if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
+      await navigator.share({ files:[arquivo], title: nome, text: texto });
+      return;
+    }
+  }catch(e){
+    if(e && e.name === 'AbortError') return; // fechou a janela de compartilhar
+    console.error(e);
+  }
+  // computador / navegador sem compartilhamento de arquivo
+  doc.save(nome);
+  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+  toast('PDF baixado. Anexe ele na conversa do WhatsApp que abriu.');
 }
 
 /* ======================================================
