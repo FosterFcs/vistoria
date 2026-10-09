@@ -1225,11 +1225,15 @@ function gerarRelatorioPDF(id, modo){
 
   y = checarQuebra(y, 250);
   y += 6;
-  doc.setFontSize(8); doc.setTextColor(120,120,120);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120,120,120);
   const aviso = 'Este relatório é uma avaliação técnica PRELIMINAR assistida por IA, com apoio conceitual em normas ABNT (NBR 16747 e outras aplicáveis). Não é um diagnóstico conclusivo nem substitui a vistoria presencial e o laudo técnico de um engenheiro responsável habilitado.';
   const linhasAviso = doc.splitTextToSize(aviso, 180);
   doc.text(linhasAviso, 15, y);
   y += linhasAviso.length*4 + 8;
+  if(perfil.assinatura && perfil.assinatura.img){
+    y = checarQuebra(y, 226);
+    y = desenharAssinaturaResponsavel(doc, y, perfil);
+  }
   y = checarQuebra(y, 268);
   rodapeMarca(doc, y);
   numerarPaginas(doc);
@@ -1586,6 +1590,28 @@ function numerarPaginas(doc){
     doc.text(`Página ${i} de ${n}`, 195, 291, { align:'right' });
   }
   doc.setTextColor(0,0,0);
+}
+
+// Assinatura única do responsável (relatório da IA), usando a assinatura salva no perfil.
+function desenharAssinaturaResponsavel(doc, y, perfil){
+  const sig = perfil.assinatura;
+  const altSig = 20;
+  const k = Math.min(70 / sig.w, altSig / sig.h);
+  const w = sig.w * k, h = sig.h * k;
+  try{ doc.addImage(sig.img, 'PNG', 15 + (80 - w) / 2, y + altSig - h, w, h); }catch(e){ console.error(e); }
+  doc.setDrawColor(60,60,60); doc.setLineWidth(0.3);
+  doc.line(15, y + altSig + 1, 95, y + altSig + 1);
+  let yy = y + altSig + 5.5;
+  doc.setTextColor(0,0,0);
+  const nome = perfil.nome || perfil.empresa || '';
+  if(nome){ doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.text(doc.splitTextToSize(nome, 80)[0], 15, yy); yy += 4.2; }
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text('Responsável pela avaliação', 15, yy); yy += 4.2;
+  if(perfil.registro){ doc.text(perfil.registro, 15, yy); yy += 4.2; }
+  doc.setFontSize(7); doc.setTextColor(130,130,130);
+  doc.text(`Emitido em ${fmtDateTime(new Date().toISOString())}`, 15, yy);
+  doc.setTextColor(0,0,0);
+  return y + altSig + 22;
 }
 
 // Bloco de assinaturas do laudo: usa a assinatura da tela quando existe;
