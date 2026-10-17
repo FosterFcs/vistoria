@@ -27,6 +27,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   --blue:#E00000;
@@ -178,7 +179,36 @@ tr:hover td{ background:#F5F8FB; }
 .login-card .field{ margin-bottom:14px; }
 .login-card button{ width:100%; margin-top:6px; }
 .lp-sem-conta{ margin-top:16px; font-size:13px; color:var(--ink-soft); text-align:center; }
+.lp-sem-conta{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
 .lp-sem-conta a{ color:var(--blue); font-weight:600; }
+.lp-modo{ font-weight:700; font-size:15px; margin-bottom:10px; text-align:center; }
+.lp-msg{ display:none; font-size:13px; background:#FFF8E8; border:1px solid #F0DFA8; border-radius:6px; padding:9px 11px; margin-bottom:12px; }
+.lp-aceite{ font-size:12px; color:var(--ink-soft); margin:-4px 0 6px; }
+.lp-aceite a{ color:inherit; }
+.lp-planos{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.lp-plano{ background:#272A2F; border-radius:var(--radius); padding:22px; border:1px solid #3A3E44; }
+.lp-plano h3{ font-size:20px; color:#fff; }
+.lp-preco{ font-family:'Oswald',sans-serif; font-size:34px; color:var(--amber); margin:6px 0 10px; }
+.lp-preco small{ font-size:15px; color:#B9BEC5; }
+.lp-plano ul{ list-style:none; font-size:14.5px; color:#C9CDD3; line-height:1.9; }
+.lp-plano li::before{ content:'✓ '; color:var(--amber); font-weight:700; }
+.lp-destaque{ border:2px solid var(--amber); }
+.lp-nota-precos{ font-size:13px; color:#8D939B; margin:16px 0 22px; text-align:center; }
+.lp-rodape a{ color:inherit; }
+.plano-badge{ font-size:12.5px; font-weight:600; padding:6px 10px; border-radius:999px; background:#FFF3DC; color:#7A4B00; border:1px solid #F0DFA8; cursor:pointer; white-space:nowrap; }
+.plano-badge.fim{ background:#FDE8E8; color:#9B1C1C; border-color:#F5C2C2; }
+.plano-badge.pago{ background:#E7F6EE; color:#1E6B47; border-color:#BFE5D0; }
+.planos-app{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:10px; }
+.plano-app{ border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+.plano-app h3{ font-size:17px; }
+.plano-app .preco{ font-family:'Oswald',sans-serif; font-size:26px; color:var(--blue); margin:4px 0 8px; }
+.plano-app ul{ margin:0 0 12px 18px; font-size:13.5px; line-height:1.7; }
+.plano-app .btns{ display:flex; gap:8px; flex-wrap:wrap; }
+a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+@media(max-width:760px){ .topbar{ padding:12px 14px; gap:8px; } .topbar h1{ font-size:19px; } .plano-badge{ font-size:11.5px; padding:5px 8px; } .topbar-actions .btn{ padding:6px 8px; } }
+.uso-barra{ height:10px; background:#EEF1F4; border-radius:6px; overflow:hidden; margin:8px 0 4px; }
+.uso-barra i{ display:block; height:100%; background:var(--amber); }
+@media(max-width:860px){ .lp-planos, .planos-app{ grid-template-columns:1fr; } }
 .lp-top{ max-width:1100px; margin:0 auto; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; }
 .lp-logo{ font-size:26px; color:#fff; }
 .lp-logo span{ color:var(--amber); }
@@ -232,7 +262,7 @@ tr:hover td{ background:#F5F8FB; }
 <div class="login-wrap hidden" id="login-screen">
   <header class="lp-top">
     <div class="display lp-logo">Vistor<span>IA</span></div>
-    <a href="#entrar" class="lp-link-entrar">Já tenho acesso →</a>
+    <a href="#entrar" class="lp-link-entrar" onclick="modoLogin('entrar')">Entrar</a>
   </header>
 
   <section class="lp-hero">
@@ -241,20 +271,27 @@ tr:hover td{ background:#F5F8FB; }
       <h1 class="display">Tire a foto da trinca.<br>Receba o laudo preliminar em minutos.</h1>
       <p>A IA identifica a manifestação patológica, a classificação de risco, as causas prováveis, as investigações e a norma de referência. Você revisa, assina e envia o PDF <b>com a sua marca</b> direto pelo WhatsApp.</p>
       <div class="lp-ctas">
-        <a class="btn btn-whats lp-btn" href="https://wa.me/5524992096103?text=Ol%C3%A1%2C%20Wilson!%20Quero%20testar%20o%20VistorIA%20(diagn%C3%B3stico%20de%20patologias%20por%20IA)." target="_blank" rel="noopener">Quero testar grátis</a>
+        <a class="btn btn-primary lp-btn" href="#entrar" onclick="modoLogin('criar')">Testar grátis por 7 dias</a>
         <a class="btn lp-btn lp-btn-ghost" href="exemplo/diagnostico-ia-exemplo.pdf" target="_blank" rel="noopener">Ver um laudo de exemplo</a>
       </div>
     </div>
     <div class="login-card" id="entrar">
       <div class="display">VistorIA</div>
       <div class="sub">Diagnóstico de Patologias por IA</div>
-      <form id="form-login">
+      <div class="lp-modo" id="login-titulo">Entrar na sua conta</div>
+      <div class="lp-msg" id="login-msg"></div>
+      <form id="form-login" novalidate>
+        <div class="field hidden" id="campo-nome"><label>Seu nome</label><input id="login-nome" autocomplete="name" maxlength="120"></div>
         <div class="field"><label>E-mail</label><input id="login-email" type="email" required autocomplete="username"></div>
-        <div class="field"><label>Senha</label><input id="login-senha" type="password" required autocomplete="current-password"></div>
-        <button type="submit" class="btn btn-primary">Entrar</button>
+        <div class="field" id="campo-senha"><label>Senha</label><input id="login-senha" type="password" minlength="6" autocomplete="current-password"></div>
+        <div class="lp-aceite hidden" id="login-aceite">Ao criar a conta você concorda com os <a href="termos.html" target="_blank" rel="noopener">Termos de uso e a Política de privacidade</a>.</div>
+        <button type="submit" class="btn btn-primary" id="login-btn">Entrar</button>
         <div class="login-error" id="login-error">E-mail ou senha inválidos.</div>
       </form>
-      <div class="lp-sem-conta">Ainda não tem acesso? <a href="https://wa.me/5524992096103?text=Ol%C3%A1%2C%20Wilson!%20Quero%20testar%20o%20VistorIA%20(diagn%C3%B3stico%20de%20patologias%20por%20IA)." target="_blank" rel="noopener">Peça o seu pelo WhatsApp</a></div>
+      <div class="lp-sem-conta" id="login-links">
+        <a href="#entrar" id="link-alternar" onclick="modoLogin(_modoLogin==='entrar'?'criar':'entrar'); return false;">Criar conta grátis (7 dias)</a>
+        <a href="#entrar" id="link-esqueci" onclick="modoLogin('esqueci'); return false;">Esqueci a senha</a>
+      </div>
     </div>
   </section>
 
@@ -283,14 +320,28 @@ tr:hover td{ background:#F5F8FB; }
     </div>
   </section>
 
+
+  <section class="lp-sec" id="precos">
+    <h2 class="display">Planos</h2>
+    <div class="lp-planos">
+      <div class="lp-plano"><h3>Teste grátis</h3><div class="lp-preco">7 dias</div><ul><li>Tudo liberado</li><li>5 diagnósticos por IA</li><li>Vistorias completas à vontade</li><li>Sem cartão</li></ul></div>
+      <div class="lp-plano"><h3>Essencial</h3><div class="lp-preco">R$ 49<small>/mês</small></div><ul><li>15 diagnósticos por IA por mês</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e assinatura</li><li>Anual: R$ 490 (2 meses grátis)</li></ul></div>
+      <div class="lp-plano lp-destaque"><h3>Profissional</h3><div class="lp-preco">R$ 89<small>/mês</small></div><ul><li>Diagnósticos por IA à vontade*</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e assinatura</li><li>Anual: R$ 890 (2 meses grátis)</li></ul></div>
+    </div>
+    <p class="lp-nota-precos">* Até 150 diagnósticos por IA a cada 30 dias. Pagamento por Pix ou cartão. Quem assina durante o teste não perde os dias que faltam.</p>
+    <div class="lp-ctas" style="justify-content:center;"><a class="btn btn-primary lp-btn" href="#entrar" onclick="modoLogin('criar')">Começar o teste grátis</a></div>
+  </section>
   <section class="lp-sec lp-final">
     <h2 class="display">Teste no seu próximo atendimento</h2>
-    <p>Fale com a gente pelo WhatsApp e receba o seu acesso de teste.</p>
-    <a class="btn btn-whats lp-btn" href="https://wa.me/5524992096103?text=Ol%C3%A1%2C%20Wilson!%20Quero%20testar%20o%20VistorIA%20(diagn%C3%B3stico%20de%20patologias%20por%20IA)." target="_blank" rel="noopener">Falar no WhatsApp</a>
+    <p>Crie a conta em 1 minuto e use por 7 dias, sem cartão.</p>
+    <div class="lp-ctas" style="justify-content:center;">
+      <a class="btn btn-primary lp-btn" href="#entrar" onclick="modoLogin('criar')">Criar conta grátis</a>
+      <a class="btn btn-whats lp-btn" href="https://wa.me/5524992096103?text=Ol%C3%A1%2C%20Wilson!%20Quero%20testar%20o%20VistorIA%20(diagn%C3%B3stico%20de%20patologias%20por%20IA)." target="_blank" rel="noopener">Dúvidas no WhatsApp</a>
+    </div>
     <p class="lp-aviso">O VistorIA gera uma avaliação técnica <b>preliminar</b> assistida por IA. Ela não substitui a vistoria presencial nem o laudo assinado por profissional habilitado, com ART/RRT.</p>
   </section>
 
-  <footer class="lp-rodape">Wilson Foster · Foster Engenharia &amp; Construção · Eng. Civil CREA-SP 5071894914 · (24) 99209-6103 · comercial@fosterconstrucoes.com.br</footer>
+  <footer class="lp-rodape"><a href="termos.html">Termos de uso e privacidade</a> · Wilson Foster · Foster Engenharia &amp; Construção · Eng. Civil CREA-SP 5071894914 · (24) 99209-6103 · comercial@fosterconstrucoes.com.br</footer>
 </div>
 
 <div class="app hidden" id="app-shell">
@@ -304,7 +355,7 @@ tr:hover td{ background:#F5F8FB; }
       <button class="nav-btn" data-view="novo"><span class="icon">📷</span><span class="label">Diagnóstico IA</span></button>
       <button class="nav-btn" data-view="vistoria"><span class="icon">📋</span><span class="label">Vistoria Completa</span></button>
       <button class="nav-btn" data-view="historico"><span class="icon">☰</span><span class="label">Histórico</span></button>
-      <button class="nav-btn" data-view="usuarios"><span class="icon">◈</span><span class="label">Usuários</span></button>
+      <button class="nav-btn" data-view="plano"><span class="icon">★</span><span class="label">Plano</span></button>
     </nav>
     <div class="sidebar-footer">
       <button class="logout-btn" id="logout-btn">↩ Sair</button>
@@ -313,7 +364,7 @@ tr:hover td{ background:#F5F8FB; }
   </div>
   <div class="main">
     <div class="blueprint-strip"></div>
-    <div class="topbar"><h1 id="page-title">Dashboard</h1><div class="topbar-actions"><button class="btn btn-outline btn-sm" id="btn-perfil" onclick="abrirPerfil()">👤 Meu perfil</button></div></div>
+    <div class="topbar"><h1 id="page-title">Dashboard</h1><div class="topbar-actions"><button class="plano-badge hidden" id="badge-plano" onclick="abrirPlano()"></button><button class="btn btn-outline btn-sm" id="btn-perfil" onclick="abrirPerfil()">👤 Meu perfil</button></div></div>
     <div class="content" id="content"></div>
   </div>
 </div>
@@ -322,24 +373,67 @@ tr:hover td{ background:#F5F8FB; }
 
 <script>
 /* ======================================================
-   CONFIGURAÇÃO DO BACKEND — endereço do seu Worker Cloudflare
+   BACKEND — Supabase (mesmo projeto do Foster Calc: um login para os dois)
+   A chave abaixo é a publicável: pode ficar no navegador, o acesso é controlado pelas regras (RLS) do banco.
    ====================================================== */
-const API_BASE_URL = 'https://vistoria-worker.fosterconstrutora.workers.dev';
+const SUPA_URL = 'https://fvsdlpnvqfvjdxmfgbjx.supabase.co';
+const SUPA_CHAVE = 'sb_publishable_VT3XEbInyTr2Eu-AuLnrqw_BOrA2jYy';
+const sb = window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_CHAVE) : null;
+const supaOk = !!sb;
 
-let supaOk = false;
-try{ if(!API_BASE_URL.includes('SEU-WORKER')) supaOk = true; }catch(e){ console.error(e); }
+// Planos e links de pagamento (Asaas). Enquanto um link estiver vazio, o botão abre o WhatsApp.
+const PLANOS_VIST = {
+  'essencial-mensal':    { nome:'Essencial mensal',    preco:'R$ 49/mês',  link:'' },
+  'essencial-anual':     { nome:'Essencial anual',     preco:'R$ 490/ano', link:'' },
+  'profissional-mensal': { nome:'Profissional mensal', preco:'R$ 89/mês',  link:'' },
+  'profissional-anual':  { nome:'Profissional anual',  preco:'R$ 890/ano', link:'' },
+};
+const WHATS_SUPORTE = '5524992096103';
+let CONTA = null; // situação do plano: vist_status()
 
-async function apiFetch(path, options={}){
-  const token = localStorage.getItem('vst_session');
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-  if(token) headers['Authorization'] = 'Bearer ' + token;
-  try{
-    const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-    const data = await res.json().catch(() => null);
-    return { ok: res.ok, status: res.status, data };
-  }catch(e){
-    return { ok: false, status: 0, data: { message: e.message } };
+const COL_LISTA_D = 'id,titulo,obra_local,endereco,patologia_tipo,gravidade,criado_em';
+const COL_LISTA_V = 'id,titulo,categoria,imovel_endereco,cliente_nome,data_vistoria,criado_em';
+const MSG_SEM_PLANO = 'Seu teste ou plano terminou. Assine para continuar salvando.';
+
+function respostaSupa(r, padrao){
+  if(r.error){
+    const negado = r.error.code === '42501' || /row-level security/i.test(r.error.message || '');
+    return { ok:false, status: negado ? 402 : 400, data:{ message: negado ? MSG_SEM_PLANO : (padrao || 'Não foi possível concluir. Verifique a conexão.') } };
   }
+  return { ok:true, status:200, data:r.data };
+}
+
+// Mantém as mesmas rotas que o app usava com o servidor antigo
+async function apiFetch(path, options={}){
+  if(!sb) return { ok:false, status:0, data:{ message:'Sem conexão com o servidor.' } };
+  const metodo = (options.method || 'GET').toUpperCase();
+  const corpo = options.body ? JSON.parse(options.body) : null;
+  const m = path.match(/^\/api\/(diagnosticos|vistorias|analisar)(?:\/([^/?]+))?/);
+  if(!m) return { ok:false, status:404, data:{ message:'Rota desconhecida' } };
+  const [, recurso, id] = m;
+  try{
+    if(recurso === 'analisar'){
+      const { data, error } = await sb.functions.invoke('vistoria-analisar', { body: corpo });
+      if(error){
+        let msg = 'A IA não respondeu. Verifique a conexão e tente de novo.', status = 0;
+        try{ status = error.context.status; const j = await error.context.json(); if(j && j.message) msg = j.message; }catch(e){}
+        return { ok:false, status, data:{ message: msg } };
+      }
+      if(CONTA && typeof data._restantes === 'number'){ CONTA.restantes = data._restantes; CONTA.usados = CONTA.limite - data._restantes; desenharSeloPlano(); }
+      return { ok:true, status:200, data };
+    }
+    const tabela = recurso === 'diagnosticos' ? 'vist_diagnosticos' : 'vist_vistorias';
+    if(metodo === 'GET' && !id){
+      return respostaSupa(await sb.from(tabela).select(recurso === 'diagnosticos' ? COL_LISTA_D : COL_LISTA_V).order('criado_em', { ascending:false }).limit(500));
+    }
+    if(metodo === 'GET') return respostaSupa(await sb.from(tabela).select('*').eq('id', id).single(), 'Não encontrado');
+    if(metodo === 'POST') return respostaSupa(await sb.from(tabela).insert(corpo).select('id').single(), 'Não foi possível salvar. Verifique a conexão e o tamanho das fotos.');
+    if(metodo === 'DELETE') return respostaSupa(await sb.from(tabela).delete().eq('id', id), 'Não foi possível excluir.');
+  }catch(e){
+    console.error(e);
+    return { ok:false, status:0, data:{ message:'Sem conexão. Tente de novo.' } };
+  }
+  return { ok:false, status:405, data:{ message:'Operação não suportada' } };
 }
 
 const DESENVOLVEDOR = {
@@ -373,7 +467,7 @@ function fmtDateTime(d){ if(!d) return '-'; const dt = parseData(d); if(isNaN(dt
 function uid(){ return 'id-'+Math.random().toString(36).slice(2,10); }
 function configNote(){
   if(supaOk) return '';
-  return `<div class="config-note">⚠ Backend ainda não configurado — edite <span class="mono">API_BASE_URL</span> no topo do arquivo. Rodando em modo demonstração (dados não são salvos).</div>`;
+  return `<div class="config-note">⚠ Não foi possível carregar a conexão com o servidor. Verifique a internet e recarregue a página.</div>`;
 }
 function badgeGravidade(g){
   const mapa = {
@@ -393,7 +487,7 @@ function badgeGravidade(g){
 /* ======================================================
    NAVEGAÇÃO
    ====================================================== */
-const titles = { dashboard:'Dashboard', novo:'Diagnóstico IA', vistoria:'Vistoria Completa', historico:'Histórico', usuarios:'Usuários', perfil:'Meu perfil' };
+const titles = { dashboard:'Dashboard', novo:'Diagnóstico IA', vistoria:'Vistoria Completa', historico:'Histórico', plano:'Meu plano', perfil:'Meu perfil' };
 document.querySelectorAll('.nav-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -419,7 +513,7 @@ async function render(view){
   else if(view === 'novo') renderNovo(el);
   else if(view === 'vistoria') renderVistoriaCompleta(el);
   else if(view === 'historico') renderHistorico(el);
-  else if(view === 'usuarios') renderUsuarios(el);
+  else if(view === 'plano') renderPlano(el);
   else if(view === 'perfil') renderPerfil(el);
 }
 
@@ -485,7 +579,15 @@ function tabelaDiagnosticos(list){
 let imagemAtual = null; // base64 sem prefixo data:
 let resultadoIA = null;
 
+function avisoPlanoEncerrado(el, oque){
+  el.innerHTML = `<div class="panel" style="border-left:4px solid var(--red);">
+    <h2>Seu ${CONTA && CONTA.em_teste ? 'teste grátis' : 'plano'} terminou</h2>
+    <div style="font-size:14px; margin-bottom:12px;">Para ${oque}, escolha um plano. Seu histórico continua salvo e você pode gerar os PDFs de novo quando quiser.</div>
+    <button class="btn btn-primary btn-sm" onclick="abrirPlano()">Ver planos</button>
+  </div>`;
+}
 function renderNovo(el){
+  if(CONTA && !CONTA.ativo){ avisoPlanoEncerrado(el, 'fazer novos diagnósticos por IA'); return; }
   imagemAtual = null; resultadoIA = null;
   el.innerHTML = `
     ${configNote()}
@@ -517,6 +619,7 @@ function renderNovo(el){
 
     <div style="margin-bottom:18px;">
       <button class="btn btn-primary" id="btn-analisar" disabled onclick="analisarFoto()">Analisar com IA</button>
+      ${CONTA ? `<span style="font-size:12.5px; color:var(--ink-soft); margin-left:10px;">${CONTA.restantes} análise(s) restante(s)</span>` : ''}
     </div>
 
     <div id="resultado-area"></div>
@@ -581,10 +684,13 @@ async function analisarFoto(){
 
   if(!resp.ok){
     toast(resp.data?.message || 'Erro ao analisar', false);
+    if(resp.status === 402){ await carregarConta(); setTimeout(abrirPlano, 1200); }
     return;
   }
 
   resultadoIA = resp.data;
+  delete resultadoIA._restantes; delete resultadoIA._modelo;
+  if(CONTA && CONTA.restantes <= 2) toast(CONTA.restantes ? `Restam ${CONTA.restantes} análise(s) por IA no seu ${CONTA.em_teste ? 'teste' : 'plano'}.` : `Essa foi a última análise por IA do seu ${CONTA.em_teste ? 'teste' : 'plano'}.`);
   renderResultado();
 }
 
@@ -715,6 +821,7 @@ let vistoriaAtual = null; // { categoria, titulo, imovel_endereco, cliente_nome,
 let itemFotoAlvo = null; // { aIdx, iIdx } — para onde vai a próxima foto tirada/escolhida
 
 function renderVistoriaCompleta(el){
+  if(CONTA && !CONTA.ativo){ avisoPlanoEncerrado(el, 'fazer novas vistorias'); return; }
   vistoriaAtual = { categoria:'', titulo:'', imovel_endereco:'', cliente_nome:'', data_vistoria: new Date().toISOString().slice(0,10), ambientes:[] };
   el.innerHTML = `
     ${configNote()}
@@ -1387,7 +1494,13 @@ function lerPerfil(){
   try{ return JSON.parse(localStorage.getItem(chavePerfil()) || 'null') || {}; }catch(e){ return {}; }
 }
 function gravarPerfil(p){
-  try{ localStorage.setItem(chavePerfil(), JSON.stringify(p)); return true; }catch(e){ console.error(e); return false; }
+  let ok = true;
+  try{ localStorage.setItem(chavePerfil(), JSON.stringify(p)); }catch(e){ console.error(e); ok = false; }
+  if(sb && usuarioLogado){
+    sb.rpc('vist_salvar_perfil', { p }).then(r => { if(r.error){ console.error(r.error); toast('Perfil salvo só neste aparelho (falha ao enviar para a nuvem).', false); } });
+    return true;
+  }
+  return ok;
 }
 function perfilPreenchido(p){
   p = p || lerPerfil();
@@ -1792,140 +1905,198 @@ async function entregarPDF(doc, nome, modo, texto){
 }
 
 /* ======================================================
-   USUÁRIOS (gestão de logins)
+   PLANO (teste grátis, assinatura e uso da IA)
    ====================================================== */
-async function renderUsuarios(el){
-  if(!supaOk){
-    el.innerHTML = `${configNote()}<div class="empty"><div class="display">Indisponível no modo demonstração</div>Configure o backend para gerenciar usuários.</div>`;
-    return;
+async function carregarConta(){
+  if(!sb) return;
+  const r = await sb.rpc('vist_status');
+  if(r.error){ console.error(r.error); return; }
+  CONTA = r.data;
+  // perfil: a nuvem manda; se só existir no aparelho (versão antiga), envia para a nuvem
+  if(CONTA.perfil && typeof CONTA.perfil === 'object'){
+    try{ localStorage.setItem(chavePerfil(), JSON.stringify(CONTA.perfil)); }catch(e){}
+  } else {
+    const local = lerPerfil();
+    if(perfilPreenchido(local) || local.assinatura) sb.rpc('vist_salvar_perfil', { p: local });
   }
-
-  el.innerHTML = `<div class="empty">Carregando…</div>`;
-  const resp = await apiFetch('/api/usuarios');
-  if(!resp.ok){
-    el.innerHTML = `<div class="empty"><div class="display">Erro ao carregar usuários</div>${resp.data?.message || ''}</div>`;
-    return;
-  }
-  const usuarios = resp.data || [];
-
+  delete CONTA.perfil;
+  desenharSeloPlano();
+}
+function diasRestantes(){
+  if(!CONTA || !CONTA.plano_ate) return 0;
+  return Math.max(0, Math.ceil((new Date(CONTA.plano_ate) - new Date()) / 86400000));
+}
+function nomePlano(){
+  if(!CONTA) return '';
+  if(CONTA.em_teste) return 'Teste grátis';
+  return CONTA.plano === 'profissional' ? 'Profissional' : 'Essencial';
+}
+function desenharSeloPlano(){
+  const b = document.getElementById('badge-plano');
+  if(!b || !CONTA){ return; }
+  b.classList.remove('hidden', 'fim', 'pago');
+  const d = diasRestantes();
+  if(!CONTA.ativo){ b.textContent = CONTA.em_teste ? 'Teste encerrado · Assinar' : 'Plano vencido · Renovar'; b.classList.add('fim'); }
+  else if(CONTA.em_teste){ b.textContent = `Teste grátis · ${d} dia${d===1?'':'s'} · Assinar`; }
+  else { b.textContent = `${nomePlano()} · ${d} dia${d===1?'':'s'}`; b.classList.add('pago'); if(d <= 5) b.classList.add('fim'); }
+}
+function abrirPlano(){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view === 'plano'));
+  document.getElementById('page-title').textContent = 'Meu plano';
+  render('plano');
+}
+function linkPlano(chave){
+  const p = PLANOS_VIST[chave];
+  if(p.link) return p.link;
+  const txt = `Olá! Quero assinar o VistorIA, plano ${p.nome} (${p.preco}). Meu e-mail de cadastro é ${usuarioLogado || ''}.`;
+  return `https://wa.me/${WHATS_SUPORTE}?text=${encodeURIComponent(txt)}`;
+}
+async function renderPlano(el){
+  await carregarConta();
+  if(!CONTA){ el.innerHTML = `<div class="empty"><div class="display">Não foi possível carregar seu plano</div>Verifique a conexão e tente de novo.</div>`; return; }
+  const d = diasRestantes();
+  const ate = CONTA.plano_ate ? fmtDate(CONTA.plano_ate) : '-';
+  const pct = CONTA.limite ? Math.min(100, Math.round(100 * CONTA.usados / CONTA.limite)) : 100;
+  const situacao = !CONTA.ativo
+    ? `<b style="color:var(--red)">${CONTA.em_teste ? 'Seu teste grátis terminou' : 'Seu plano venceu'} em ${ate}.</b> O histórico continua salvo.`
+    : CONTA.em_teste ? `Você está no <b>teste grátis</b>: ${d} dia${d===1?'':'s'} restante${d===1?'':'s'} (até ${ate}).`
+    : `Plano <b>${nomePlano()}</b> ativo até <b>${ate}</b> (${d} dia${d===1?'':'s'}).`;
+  const cartao = (titulo, preco, itens, chaves) => `<div class="plano-app">
+      <h3>${titulo}</h3><div class="preco">${preco}</div>
+      <ul>${itens.map(t=>`<li>${t}</li>`).join('')}</ul>
+      <div class="btns">${chaves.map((k,n)=>`<a class="btn ${n===0?'btn-primary':'btn-outline'} btn-sm" href="${linkPlano(k)}" target="_blank" rel="noopener">${n===0?'Assinar mensal':'Assinar anual · '+PLANOS_VIST[k].preco}</a>`).join('')}</div>
+    </div>`;
   el.innerHTML = `
-    <div class="grid grid-2">
-      <div class="panel">
-        <h2>Novo usuário</h2>
-        <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Cada pessoa que for usar o sistema deve ter seu próprio login.</div>
-        <form id="form-usuario">
-          <div class="field"><label>E-mail</label><input id="usu-email" type="email" required></div>
-          <div class="field"><label>Senha</label><input id="usu-senha" type="password" required minlength="6" placeholder="mínimo 6 caracteres"></div>
-          <button type="submit" class="btn btn-primary">Criar usuário</button>
-        </form>
-      </div>
-      <div class="panel">
-        <h2>Usuários cadastrados <span class="tag">${usuarios.length}</span></h2>
-        <div id="lista-usuarios">${listaUsuariosHTML(usuarios)}</div>
-      </div>
+    <div class="panel">
+      <h2>Situação</h2>
+      <div style="font-size:14.5px;">${situacao}</div>
+      <div style="margin-top:14px; font-size:13.5px;"><b>Diagnósticos por IA:</b> ${CONTA.usados} de ${CONTA.limite} ${CONTA.em_teste ? 'no teste' : 'nos últimos 30 dias'}</div>
+      <div class="uso-barra"><i style="width:${pct}%"></i></div>
+      <div style="font-size:12.5px; color:var(--ink-soft);">Vistorias completas não usam IA e não têm limite.</div>
     </div>
-  `;
-
-  document.getElementById('form-usuario').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('usu-email').value;
-    const senha = document.getElementById('usu-senha').value;
-    const resp2 = await apiFetch('/api/usuarios', { method: 'POST', body: JSON.stringify({ email, password: senha }) });
-    if(!resp2.ok){
-      toast(resp2.data?.message || 'Erro ao criar usuário', false);
-      return;
-    }
-    toast('Usuário criado com sucesso');
-    render('usuarios');
-  });
-}
-
-function listaUsuariosHTML(usuarios){
-  if(!usuarios.length) return `<div class="empty"><div class="display">Nenhum usuário encontrado</div></div>`;
-  return `<div class="table-scroll"><table><thead><tr><th>E-mail</th><th>Desde</th><th>Ações</th></tr></thead><tbody>
-    ${usuarios.map(u => `<tr>
-      <td>${esc(u.email)}</td>
-      <td class="mono">${fmtDate((u.criado_em||'').slice(0,10))}</td>
-      <td>${usuarios.length > 1 ? `<button class="btn btn-danger btn-sm" onclick="excluirUsuario('${esc(u.id)}')">Excluir</button>` : '<span class="badge badge-indeterminado">Único</span>'}</td>
-    </tr>`).join('')}
-    </tbody></table></div>`;
-}
-
-async function excluirUsuario(id){
-  if(!confirm('Excluir este usuário? Ele não vai mais conseguir entrar no sistema.')) return;
-  const resp = await apiFetch(`/api/usuarios/${id}`, { method: 'DELETE' });
-  if(!resp.ok){
-    toast(resp.data?.message || 'Não foi possível excluir', false);
-    return;
-  }
-  toast('Usuário excluído');
-  render('usuarios');
-}
-
-// O menu Usuários (criar e excluir logins) aparece só para a conta mais antiga, que é a do administrador.
-// Os clientes que você cadastrar não veem esse menu.
-async function ajustarMenuUsuarios(){
-  const btn = document.querySelector('[data-view="usuarios"]');
-  btn.classList.add('hidden');
-  const resp = await apiFetch('/api/usuarios');
-  if(!resp.ok || !Array.isArray(resp.data) || !resp.data.length) return;
-  const maisAntigo = resp.data.slice().sort((a,b)=> String(a.criado_em||'').localeCompare(String(b.criado_em||'')))[0];
-  if(maisAntigo && String(maisAntigo.email||'').toLowerCase() === String(usuarioLogado||'').toLowerCase()) btn.classList.remove('hidden');
+    <div class="panel">
+      <h2>Planos</h2>
+      <div class="planos-app">
+        ${cartao('Essencial', 'R$ 49/mês', ['15 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e assinatura'], ['essencial-mensal','essencial-anual'])}
+        ${cartao('Profissional', 'R$ 89/mês', ['Até 150 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e assinatura'], ['profissional-mensal','profissional-anual'])}
+      </div>
+      <div style="font-size:13px; color:var(--ink-soft); margin-top:14px; line-height:1.5;">
+        Pagamento por Pix ou cartão. <b>Use no pagamento o mesmo e-mail do cadastro (${esc(usuarioLogado || '')})</b>: o plano é ativado sozinho em poucos minutos.
+        Quem assina durante o teste não perde os dias que faltam. Dúvidas: <a href="https://wa.me/${WHATS_SUPORTE}" target="_blank" rel="noopener">WhatsApp (24) 99209-6103</a>.
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="render('plano')">Já paguei · atualizar</button>
+    </div>`;
 }
 
 /* ======================================================
-   AUTENTICAÇÃO
+   AUTENTICAÇÃO (Supabase)
    ====================================================== */
+let _modoLogin = 'entrar';
+function modoLogin(modo){
+  _modoLogin = modo;
+  const T = { entrar:'Entrar na sua conta', criar:'Criar conta · 7 dias grátis', esqueci:'Recuperar senha', nova:'Criar uma nova senha' };
+  const B = { entrar:'Entrar', criar:'Criar conta grátis', esqueci:'Enviar link', nova:'Salvar nova senha' };
+  document.getElementById('login-titulo').textContent = T[modo];
+  document.getElementById('login-btn').textContent = B[modo];
+  document.getElementById('campo-nome').classList.toggle('hidden', modo !== 'criar');
+  document.getElementById('login-aceite').classList.toggle('hidden', modo !== 'criar');
+  document.getElementById('campo-senha').classList.toggle('hidden', modo === 'esqueci');
+  document.getElementById('login-email').closest('.field').classList.toggle('hidden', modo === 'nova');
+  document.getElementById('login-senha').autocomplete = (modo === 'criar' || modo === 'nova') ? 'new-password' : 'current-password';
+  document.getElementById('link-alternar').textContent = modo === 'entrar' ? 'Criar conta grátis (7 dias)' : 'Já tenho conta';
+  document.getElementById('link-esqueci').classList.toggle('hidden', modo !== 'entrar');
+  document.getElementById('login-links').classList.toggle('hidden', modo === 'nova');
+  document.getElementById('login-error').style.display = 'none';
+}
+function avisoLogin(txt){
+  const m = document.getElementById('login-msg');
+  m.textContent = txt || ''; m.style.display = txt ? 'block' : 'none';
+}
+function mostrarLanding(){
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+async function entrarNoApp(sessao){
+  usuarioLogado = sessao.user.email;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  await carregarConta();
+  if(CONTA && CONTA.em_teste && CONTA.ativo && !localStorage.getItem('vst_boasvindas_' + usuarioLogado)){
+    try{ localStorage.setItem('vst_boasvindas_' + usuarioLogado, '1'); }catch(e){}
+    toast(`Bem-vindo! Seu teste grátis vai até ${fmtDate(CONTA.plano_ate)}, com ${CONTA.limite} diagnósticos por IA.`);
+  }
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view === 'dashboard'));
+  document.getElementById('page-title').textContent = 'Dashboard';
+  render('dashboard');
+}
+
+let _emRecuperacao = false;
 async function initAuth(){
-  if(!supaOk){
-    document.getElementById('app-shell').classList.remove('hidden');
-    render('dashboard');
+  if(!sb){
+    mostrarLanding();
+    avisoLogin('Não foi possível conectar ao servidor. Verifique a internet e recarregue a página.');
     return;
   }
-  if(!localStorage.getItem('vst_session')){
-    document.getElementById('login-screen').classList.remove('hidden');
-    return;
-  }
-  const resp = await apiFetch('/api/me');
-  if(resp.ok){
-    usuarioLogado = resp.data.email;
-    document.getElementById('app-shell').classList.remove('hidden');
-    ajustarMenuUsuarios();
-    render('dashboard');
-  } else {
-    document.getElementById('login-screen').classList.remove('hidden');
-  }
+  sb.auth.onAuthStateChange((evento, sessao) => {
+    if(evento === 'PASSWORD_RECOVERY'){ _emRecuperacao = true; mostrarLanding(); modoLogin('nova'); avisoLogin('Digite a sua nova senha.'); document.getElementById('entrar').scrollIntoView(); }
+  });
+  const { data } = await sb.auth.getSession();
+  if(/type=recovery/.test(location.hash) || _emRecuperacao){ mostrarLanding(); modoLogin('nova'); return; }
+  if(data.session){ await entrarNoApp(data.session); return; }
+  mostrarLanding();
+  if(/error_description=/.test(location.hash)) avisoLogin('O link do e-mail expirou ou já foi usado. Entre com e-mail e senha ou peça um novo link.');
+  if(location.hash === '#criar'){ modoLogin('criar'); document.getElementById('entrar').scrollIntoView(); }
 }
 
 document.getElementById('form-login').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const email = document.getElementById('login-email').value;
+  const email = document.getElementById('login-email').value.trim();
   const senha = document.getElementById('login-senha').value;
+  const nome = document.getElementById('login-nome').value.trim();
   const errBox = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  const erro = (t) => { errBox.textContent = t; errBox.style.display = 'block'; };
   errBox.style.display = 'none';
-
-  const resp = await apiFetch('/api/login', { method:'POST', body: JSON.stringify({ email, password: senha }) });
-  if(!resp.ok){
-    errBox.textContent = resp.data?.message || 'E-mail ou senha inválidos.';
-    errBox.style.display = 'block';
-    return;
-  }
-  localStorage.setItem('vst_session', resp.data.token);
-  usuarioLogado = resp.data.user.email;
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app-shell').classList.remove('hidden');
-  ajustarMenuUsuarios();
-  render('dashboard');
+  if(!sb){ erro('Sem conexão com o servidor.'); return; }
+  if(_modoLogin !== 'nova' && !/^\S+@\S+\.\S+$/.test(email)){ erro('Informe um e-mail válido.'); return; }
+  if(_modoLogin !== 'esqueci' && senha.length < 6){ erro('A senha precisa ter pelo menos 6 caracteres.'); return; }
+  btn.disabled = true;
+  const voltar = location.origin + location.pathname;
+  try{
+    if(_modoLogin === 'entrar'){
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+      if(error){ erro(/confirm/i.test(error.message) ? 'Confirme seu e-mail pelo link que enviamos antes de entrar.' : 'E-mail ou senha incorretos.'); return; }
+      await entrarNoApp(data.session);
+    } else if(_modoLogin === 'criar'){
+      const { data, error } = await sb.auth.signUp({ email, password: senha, options:{ data:{ nome, origem:'vistoria' }, emailRedirectTo: voltar } });
+      if(error){ erro(/registered|already/i.test(error.message) ? 'Este e-mail já tem conta. Use "Já tenho conta" (vale a mesma conta do Foster Calc).' : 'Não foi possível criar a conta. Tente de novo.'); return; }
+      if(data.session){ await entrarNoApp(data.session); return; }
+      modoLogin('entrar');
+      avisoLogin(`Pronto! Enviamos um link de confirmação para ${email}. Abra o e-mail, toque no link e depois entre aqui com a sua senha. Seu teste de 7 dias começa no primeiro acesso.`);
+    } else if(_modoLogin === 'esqueci'){
+      await sb.auth.resetPasswordForEmail(email, { redirectTo: voltar });
+      modoLogin('entrar');
+      avisoLogin(`Se ${email} tiver conta, você vai receber um link para criar uma nova senha.`);
+    } else if(_modoLogin === 'nova'){
+      const { error } = await sb.auth.updateUser({ password: senha });
+      if(error){ erro('Não foi possível salvar. Peça um novo link em "Esqueci a senha".'); return; }
+      _emRecuperacao = false; history.replaceState(null, '', location.pathname);
+      avisoLogin('');
+      const { data } = await sb.auth.getSession();
+      if(data.session){ toast('Senha atualizada'); await entrarNoApp(data.session); } else { modoLogin('entrar'); avisoLogin('Senha atualizada. Entre com a nova senha.'); }
+    }
+  } catch(ex){ console.error(ex); erro('Sem conexão. Tente de novo.'); }
+  finally { btn.disabled = false; }
 });
 
 document.getElementById('logout-btn').addEventListener('click', async ()=>{
-  if(supaOk) await apiFetch('/api/logout', { method:'POST' });
-  localStorage.removeItem('vst_session');
-  usuarioLogado = null;
-  document.getElementById('app-shell').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
+  if(sb) await sb.auth.signOut();
+  usuarioLogado = null; CONTA = null;
+  document.getElementById('badge-plano').classList.add('hidden');
+  mostrarLanding(); modoLogin('entrar'); avisoLogin('');
   document.getElementById('login-email').value = '';
   document.getElementById('login-senha').value = '';
+  window.scrollTo(0, 0);
 });
 
 window.addEventListener('error', function(e){

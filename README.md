@@ -30,35 +30,36 @@ Todo relatório informa que se trata de uma avaliação técnica **preliminar** 
 |---|---|
 | `index.html` | O aplicativo inteiro e a página de apresentação pública (mostrada a quem não está logado). |
 | `manifest.json`, `icon-192.png`, `icon-512.png` | Instalação na tela inicial do celular. |
+| `termos.html` | Termos de uso e política de privacidade (LGPD). |
 | `og.jpg` | Imagem da prévia do link no WhatsApp, Instagram e LinkedIn. |
 | `exemplo/diagnostico-ia-exemplo.pdf` | Laudo de exemplo do diagnóstico por IA, com marca d'água EXEMPLO. |
 | `exemplo/laudo-vistoria-exemplo.pdf` | Laudo de exemplo de vistoria de entrada de locação. |
 
 ## Backend
 
-O app conversa com um Cloudflare Worker em `https://vistoria-worker.fosterconstrutora.workers.dev`, com banco D1 e IA de visão da Groq. O código do Worker **não está neste repositório**.
+Supabase, no mesmo projeto do Foster Calc (`fvsdlpnvqfvjdxmfgbjx`): uma conta vale para os dois produtos.
 
-Rotas usadas pelo app:
-
-| Rota | Métodos |
+| Peça | O que faz |
 |---|---|
-| `/api/login`, `/api/logout` | POST |
-| `/api/me` | GET |
-| `/api/usuarios` | GET, POST |
-| `/api/usuarios/:id` | DELETE |
-| `/api/diagnosticos` e `/api/diagnosticos/:id` | GET, POST, DELETE |
-| `/api/vistorias` e `/api/vistorias/:id` | GET, POST, DELETE |
-| `/api/analisar` | POST, com a foto em base64 |
+| Tabela `vist_contas` | Plano de cada usuário (`teste`, `essencial`, `profissional`), validade e perfil profissional (logo, registro, assinatura). Só muda pelas funções abaixo. |
+| Tabelas `vist_diagnosticos` e `vist_vistorias` | Histórico. Cada usuário só lê e apaga o que é dele (RLS). Criar exige plano ativo. |
+| Tabela `vist_analises` | Registro de cada análise por IA, para o limite do plano. |
+| `vist_status()` | Cria a conta com 7 dias de teste no primeiro acesso e devolve plano, validade e uso. |
+| `vist_reservar_analise()` | Confere plano e limite antes de chamar a IA. |
+| `vist_ativar_plano()` e `vist_cancelar_se()` | Chamadas só pelo webhook do Asaas. |
+| `vist_salvar_perfil()` | Salva o perfil profissional na nuvem. |
+| Função `vistoria-analisar` | Confere o login, reserva a análise, chama a IA da Groq e devolve a análise se a IA falhar. Código em `supabase/functions/vistoria-analisar`. Segredo: `GROQ_API_KEY`. |
+| Função `asaas-webhook` | Central de pagamentos Foster (código no repositório do Foster Calc). Ativa os planos do VistorIA pelos valores R$ 49, 490, 89 e 890. |
 
-O login guarda o token em `localStorage` (`vst_session`) e envia `Authorization: Bearer`. O perfil profissional (logo, registro, assinatura) fica no próprio aparelho, em `vst_perfil_<email>`.
+### Planos
 
-### Contas e acesso
+| Plano | Preço | Diagnósticos por IA |
+|---|---|---|
+| Teste grátis | 7 dias | 5 no total |
+| Essencial | R$ 49/mês ou R$ 490/ano | 15 a cada 30 dias |
+| Profissional | R$ 89/mês ou R$ 890/ano | 150 a cada 30 dias |
 
-- Não existe cadastro aberto. O acesso é criado pelo administrador no menu **Usuários**.
-- O menu Usuários aparece só para a conta mais antiga, que é a do administrador.
-- A proteção real precisa estar no Worker:
-  - só o administrador pode criar e excluir usuários;
-  - cada usuário só vê os próprios diagnósticos e vistorias.
+Vistorias completas não usam IA e não têm limite. Os links de pagamento ficam em `PLANOS_VIST`, no `index.html`. Enquanto um link estiver vazio, o botão abre o WhatsApp.
 
 ## Desenvolvedor
 
