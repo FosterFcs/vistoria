@@ -137,7 +137,10 @@ Deno.serve(async (req) => {
   if (!imagem || imagem.length < 1000) return resp(req, 400, { message: "Envie uma foto." });
   if (imagem.length > 4_000_000) return resp(req, 413, { message: "Foto grande demais. Tente outra." });
 
-  const chave = (Deno.env.get("GROQ_API_KEY") || "").trim();
+  const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  // chave: segredo da função; se não houver, a reserva guardada em config_privada (só o servidor lê)
+  let chave = (Deno.env.get("GROQ_API_KEY") || "").trim();
+  if (!chave) { const { data } = await admin.from("config_privada").select("valor").eq("nome", "GROQ_API_KEY").maybeSingle(); chave = (data?.valor || "").trim(); }
   if (!chave) return resp(req, 503, { message: "A IA ainda não foi configurada. Avise o suporte." });
 
   const { data: res, error } = await usuario.rpc("vist_reservar_analise");
@@ -151,7 +154,6 @@ Deno.serve(async (req) => {
 
   const ia = await chamarIA(chave, imagem);
   if ("erro" in ia) {
-    const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
     await admin.rpc("vist_devolver_analise", { p_id: res.id });
     console.log(JSON.stringify({ diag: "ia_falhou", erro: ia.erro, detalhe: ia.detalhe }));
     const m = ia.erro === "limite_ia" ? "A IA está muito ocupada agora. Espere um minuto e tente de novo (essa tentativa não foi descontada)."
