@@ -59,9 +59,17 @@ Supabase, no mesmo projeto do Foster Calc (`fvsdlpnvqfvjdxmfgbjx`): uma conta va
 | Essencial | R$ 49/mês ou R$ 490/ano | 15 a cada 30 dias |
 | Profissional | R$ 89/mês ou R$ 890/ano | 150 a cada 30 dias |
 
-Vistorias completas não usam IA e não têm limite. Os links de pagamento ficam em `PLANOS_VIST`, no `index.html`. Enquanto um link estiver vazio, o botão abre o WhatsApp.
+Vistorias completas não usam IA e não têm limite.
+
+### Pagamento (Pix automático)
+
+O botão do plano chama `vist_pedir_plano` (cria o pedido `VI-…` em `vist_pagamentos`) e a função `asaas-cobrar` (produto `vistoria`), que gera o Pix com `externalReference` `fostervist:<código>`. Quando o Pix cai, o `asaas-webhook` chama `vist_confirmar_interno`, que ativa o plano por `vist_ativar_plano`. SQL em `supabase/pix_automatico.sql`. Se o Pix não puder ser gerado, o app oferece o WhatsApp.
+
+### IA
+
+O único modelo de visão disponível hoje na conta Groq é `qwen/qwen3.8-27b` (os Llama 4 foram retirados). Testado em 05/11/2026 com fotos reais de trinca e de descolamento de revestimento.
 
 ## Desenvolvedor
 
-Wilson Foster · Foster Engenharia & Construção · Eng. Civil CREA-SP 5071894914
+Wilson Foster · Engenheiro Civil · CREA/SP
 (24) 99209-6103 · comercial@fosterconstrucoes.com.br

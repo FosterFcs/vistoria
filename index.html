@@ -200,6 +200,7 @@ tr:hover td{ background:#F5F8FB; }
 .plano-badge.pago{ background:#E7F6EE; color:#1E6B47; border-color:#BFE5D0; }
 .planos-app{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:10px; }
 .plano-app{ border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+.pix-app{ border:2px solid var(--blue); border-radius:var(--radius); padding:16px; margin-top:14px; background:#fff; }
 .plano-app h3{ font-size:17px; }
 .plano-app .preco{ font-family:'Oswald',sans-serif; font-size:26px; color:var(--blue); margin:4px 0 8px; }
 .plano-app ul{ margin:0 0 12px 18px; font-size:13.5px; line-height:1.7; }
@@ -328,7 +329,7 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
       <div class="lp-plano"><h3>Essencial</h3><div class="lp-preco">R$ 49<small>/mês</small></div><ul><li>15 diagnósticos por IA por mês</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e assinatura</li><li>Anual: R$ 490 (2 meses grátis)</li></ul></div>
       <div class="lp-plano lp-destaque"><h3>Profissional</h3><div class="lp-preco">R$ 89<small>/mês</small></div><ul><li>Diagnósticos por IA à vontade*</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e assinatura</li><li>Anual: R$ 890 (2 meses grátis)</li></ul></div>
     </div>
-    <p class="lp-nota-precos">* Até 150 diagnósticos por IA a cada 30 dias. Pagamento por Pix ou cartão. Quem assina durante o teste não perde os dias que faltam.</p>
+    <p class="lp-nota-precos">* Até 150 diagnósticos por IA a cada 30 dias. Pagamento por Pix, com liberação automática. Quem assina durante o teste não perde os dias que faltam. 7 dias para desistir com reembolso integral.</p>
     <div class="lp-ctas" style="justify-content:center;"><a class="btn btn-primary lp-btn" href="#entrar" onclick="modoLogin('criar')">Começar o teste grátis</a></div>
   </section>
   <section class="lp-sec lp-final">
@@ -341,7 +342,7 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
     <p class="lp-aviso">O VistorIA gera uma avaliação técnica <b>preliminar</b> assistida por IA. Ela não substitui a vistoria presencial nem o laudo assinado por profissional habilitado, com ART/RRT.</p>
   </section>
 
-  <footer class="lp-rodape"><a href="termos.html">Termos de uso e privacidade</a> · Wilson Foster · Foster Engenharia &amp; Construção · Eng. Civil CREA-SP 5071894914 · (24) 99209-6103 · comercial@fosterconstrucoes.com.br</footer>
+  <footer class="lp-rodape"><a href="termos.html">Termos de uso e privacidade</a> · Wilson Foster · Engenheiro Civil · CREA/SP · (24) 99209-6103 · comercial@fosterconstrucoes.com.br</footer>
 </div>
 
 <div class="app hidden" id="app-shell">
@@ -1964,7 +1965,7 @@ async function renderPlano(el){
   const cartao = (titulo, preco, itens, chaves) => `<div class="plano-app">
       <h3>${titulo}</h3><div class="preco">${preco}</div>
       <ul>${itens.map(t=>`<li>${t}</li>`).join('')}</ul>
-      <div class="btns">${chaves.map((k,n)=>`<a class="btn ${n===0?'btn-primary':'btn-outline'} btn-sm" href="${linkPlano(k)}" target="_blank" rel="noopener">${n===0?'Assinar mensal':'Assinar anual · '+PLANOS_VIST[k].preco}</a>`).join('')}</div>
+      <div class="btns">${chaves.map((k,n)=>`<button class="btn ${n===0?'btn-primary':'btn-outline'} btn-sm" onclick="pagarPlano('${k}')">${n===0?'Pagar mensal com Pix':'Pagar anual com Pix · '+PLANOS_VIST[k].preco}</button>`).join('')}</div>
     </div>`;
   el.innerHTML = `
     <div class="panel">
@@ -1981,11 +1982,60 @@ async function renderPlano(el){
         ${cartao('Profissional', 'R$ 89/mês', ['Até 150 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e assinatura'], ['profissional-mensal','profissional-anual'])}
       </div>
       <div style="font-size:13px; color:var(--ink-soft); margin-top:14px; line-height:1.5;">
-        Pagamento por Pix ou cartão. <b>Use no pagamento o mesmo e-mail do cadastro (${esc(usuarioLogado || '')})</b>: o plano é ativado sozinho em poucos minutos.
-        Quem assina durante o teste não perde os dias que faltam. Dúvidas: <a href="https://wa.me/${WHATS_SUPORTE}" target="_blank" rel="noopener">WhatsApp (24) 99209-6103</a>.
+        Pagamento por <b>Pix</b>, gerado aqui no app: o plano é ativado sozinho, em poucos segundos, assim que o Pix cair.
+        Quem assina durante o teste não perde os dias que faltam, e quem renova antes do vencimento soma os dias.
+        O plano não renova sozinho: perto do vencimento, é só pagar de novo por aqui. Você tem 7 dias para desistir com reembolso integral (<a href="termos.html" target="_blank" rel="noopener">termos</a>).
+        Dúvidas: <a href="https://wa.me/${WHATS_SUPORTE}" target="_blank" rel="noopener">WhatsApp (24) 99209-6103</a>.
       </div>
+      <div id="pix-box"></div>
       <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="render('plano')">Já paguei · atualizar</button>
     </div>`;
+}
+
+// ---------- Pix automático (central de pagamentos Foster: asaas-cobrar + asaas-webhook)
+let pixTimer = null;
+function cpfOuCnpjValido(v){
+  const c = String(v||'').replace(/\D/g,'');
+  if(c.length === 11){ if(/^(\d)\1{10}$/.test(c)) return false; const dv=n=>{let t=0;for(let i=0;i<n;i++)t+=+c[i]*(n+1-i);const r=(t*10)%11;return r===10?0:r}; return dv(9)===+c[9]&&dv(10)===+c[10]; }
+  if(c.length === 14){ if(/^(\d)\1{13}$/.test(c)) return false; const dv=n=>{const p=n===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];let t=0;for(let i=0;i<n;i++)t+=+c[i]*p[i];const r=t%11;return r<2?0:11-r}; return dv(12)===+c[12]&&dv(13)===+c[13]; }
+  return false;
+}
+async function pagarPlano(chave, extra){
+  const box = document.getElementById('pix-box'); if(!box || !sb) return;
+  const p = PLANOS_VIST[chave];
+  box.innerHTML = `<div class="pix-app"><b>Gerando o Pix do plano ${esc(p.nome)} (${esc(p.preco)})…</b></div>`;
+  box.scrollIntoView({ behavior:'smooth', block:'center' });
+  try{
+    let cod = box.dataset.codigo && box.dataset.chave === chave ? box.dataset.codigo : '';
+    if(!cod){ const r = await sb.rpc('vist_pedir_plano', { p_chave: chave }); if(r.error) throw r.error; cod = r.data.codigo; box.dataset.codigo = cod; box.dataset.chave = chave; }
+    const { data, error } = await sb.functions.invoke('asaas-cobrar', { body: Object.assign({ produto:'vistoria', codigo: cod }, extra || {}) });
+    if(error && !data) throw error;
+    if(data && (data.precisa_cpf || data.erro === 'cpf_invalido')){
+      box.innerHTML = `<div class="pix-app"><b>Para gerar o Pix, informe o CPF ou CNPJ de quem vai pagar</b> (só na primeira vez).
+        <div class="field" style="margin-top:10px;"><input id="pix-doc" inputmode="numeric" placeholder="CPF ou CNPJ"></div>
+        ${data.erro === 'cpf_invalido' ? '<div style="color:var(--red);font-size:13px;margin-bottom:8px;">Documento inválido. Confira os números.</div>' : ''}
+        <button class="btn btn-primary btn-sm" id="pix-doc-ok">Gerar Pix</button></div>`;
+      document.getElementById('pix-doc-ok').onclick = () => { const v = document.getElementById('pix-doc').value; if(!cpfOuCnpjValido(v)){ toast('Confira o CPF ou CNPJ.', false); return; } pagarPlano(chave, { cpf: v.replace(/\D/g,''), nome: (CONTA && CONTA.perfil && CONTA.perfil.nome) || '' }); };
+      return;
+    }
+    if(data && data.pago){ box.innerHTML = `<div class="pix-app"><b>Pagamento confirmado.</b> Atualizando seu plano…</div>`; setTimeout(()=>render('plano'), 1500); return; }
+    if(!data || !data.pix || !data.pix.payload) throw new Error((data && data.erro) || 'sem_pix');
+    box.innerHTML = `<div class="pix-app">
+      <div style="font-weight:700; margin-bottom:6px;">Pix do plano ${esc(p.nome)} · ${esc(p.preco)} · pedido ${esc(cod)}</div>
+      <img alt="QR code do Pix" src="data:image/png;base64,${data.pix.imagem}" style="width:220px; max-width:100%; display:block; margin:6px auto; background:#fff; border-radius:8px;">
+      <textarea id="pix-copia" readonly rows="3" style="width:100%; font-size:12px;">${esc(data.pix.payload)}</textarea>
+      <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copia').value).then(()=>toast('Código Pix copiado.'))">Copiar código Pix</button>
+      <div id="pix-status" style="margin-top:10px; font-size:13.5px;"><b>⏳ Aguardando o pagamento…</b> O plano é ativado sozinho assim que o Pix cair. Pode deixar esta tela aberta.</div></div>`;
+    clearInterval(pixTimer); let n = 0;
+    pixTimer = setInterval(async () => {
+      const st = document.getElementById('pix-status'); if(!st || ++n > 120){ clearInterval(pixTimer); return; }
+      const r = await sb.from('vist_pagamentos').select('status').eq('codigo', cod).maybeSingle();
+      if(r.data && r.data.status === 'pago'){ clearInterval(pixTimer); delete box.dataset.codigo; toast('Pagamento confirmado! Plano ativado.'); await carregarConta(); render('plano'); }
+    }, 5000);
+  }catch(e){
+    console.error(e);
+    box.innerHTML = `<div class="pix-app"><b>Não consegui gerar o Pix agora.</b> Tente de novo em instantes ou fale com o suporte: <a href="${linkPlano(chave)}" target="_blank" rel="noopener">WhatsApp</a>.</div>`;
+  }
 }
 
 /* ======================================================

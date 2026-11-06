@@ -6,7 +6,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ORIGENS = ["https://fosterfcs.github.io", "https://fostercalc.com.br", "https://www.fostercalc.com.br"];
-const MODELOS = [Deno.env.get("GROQ_MODEL") || "", "qwen/qwen3.8-27b", "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"].filter(Boolean);
+// Em 05/11/2026 o único modelo de visão da conta Groq é o qwen/qwen3.8-27b (os Llama 4 foram retirados). GROQ_MODEL permite trocar sem reimplantar.
+const MODELOS = [Deno.env.get("GROQ_MODEL") || "", "qwen/qwen3.8-27b"].filter(Boolean);
 
 function cors(req: Request) {
   const o = req.headers.get("origin") || "";
@@ -24,6 +25,7 @@ const PROMPT = `Você é um engenheiro civil brasileiro especialista em patologi
 Analise a FOTO enviada e faça uma AVALIAÇÃO TÉCNICA PRELIMINAR da manifestação patológica visível, com base conceitual nas normas ABNT aplicáveis (NBR 16747 Inspeção predial, NBR 15575 Desempenho, NBR 6118, NBR 9575 Impermeabilização, NBR 13749 Revestimento de argamassa, NBR 8545 Alvenaria, NBR 13755 Revestimento cerâmico, NBR 5410 Instalações elétricas, entre outras).
 
 Regras:
+- Contexto: edificação no Brasil, clima tropical ou subtropical. Não considere congelamento nem gelo-degelo como causa. Use os sistemas construtivos comuns no país (concreto armado, alvenaria de blocos cerâmicos ou de concreto, revestimento de argamassa, cerâmica).
 - Descreva só o que é visível. Não invente medidas: se não houver escala, diga que a abertura e a extensão são estimativas.
 - Não dê diagnóstico conclusivo. Trabalhe com hipóteses, do mais provável para o menos provável, e diga o que investigar para confirmar.
 - Classificação de risco (use exatamente uma destas palavras):
