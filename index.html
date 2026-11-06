@@ -27,6 +27,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
@@ -185,7 +186,7 @@ tr:hover td{ background:#F5F8FB; }
 .lp-msg{ display:none; font-size:13px; background:#FFF8E8; border:1px solid #F0DFA8; border-radius:6px; padding:9px 11px; margin-bottom:12px; }
 .lp-aceite{ font-size:12px; color:var(--ink-soft); margin:-4px 0 6px; }
 .lp-aceite a{ color:inherit; }
-.lp-planos{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.lp-planos{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
 .lp-plano{ background:#272A2F; border-radius:var(--radius); padding:22px; border:1px solid #3A3E44; }
 .lp-plano h3{ font-size:20px; color:#fff; }
 .lp-preco{ font-family:'Oswald',sans-serif; font-size:34px; color:var(--amber); margin:6px 0 10px; }
@@ -198,7 +199,7 @@ tr:hover td{ background:#F5F8FB; }
 .plano-badge{ font-size:12.5px; font-weight:600; padding:6px 10px; border-radius:999px; background:#FFF3DC; color:#7A4B00; border:1px solid #F0DFA8; cursor:pointer; white-space:nowrap; }
 .plano-badge.fim{ background:#FDE8E8; color:#9B1C1C; border-color:#F5C2C2; }
 .plano-badge.pago{ background:#E7F6EE; color:#1E6B47; border-color:#BFE5D0; }
-.planos-app{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:10px; }
+.planos-app{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:10px; }
 .plano-app{ border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
 .pix-app{ border:2px solid var(--blue); border-radius:var(--radius); padding:16px; margin-top:14px; background:#fff; }
 .plano-app h3{ font-size:17px; }
@@ -209,7 +210,20 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
 @media(max-width:760px){ .topbar{ padding:12px 14px; gap:8px; } .topbar h1{ font-size:19px; } .plano-badge{ font-size:11.5px; padding:5px 8px; } .topbar-actions .btn{ padding:6px 8px; } }
 .uso-barra{ height:10px; background:#EEF1F4; border-radius:6px; overflow:hidden; margin:8px 0 4px; }
 .uso-barra i{ display:block; height:100%; background:var(--amber); }
+@media(max-width:1100px){ .lp-planos{ grid-template-columns:repeat(2,1fr); } }
 @media(max-width:860px){ .lp-planos, .planos-app{ grid-template-columns:1fr; } }
+.marcador{ position:fixed; inset:0; background:#111; z-index:1000; display:flex; flex-direction:column; }
+.marcador-barra{ display:flex; gap:6px; flex-wrap:wrap; padding:10px; background:#1E2023; }
+.marcador-barra .btn{ color:#fff; }
+.marcador-barra .btn-outline{ border-color:#555; }
+.marcador-area{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:8px; }
+.marcador-area canvas{ max-width:100%; max-height:100%; touch-action:none; cursor:crosshair; }
+.marcador-dica{ color:#aaa; font-size:12.5px; text-align:center; padding:8px; }
+.lp-tabela{ width:100%; border-collapse:collapse; font-size:14.5px; color:#C9CDD3; margin-top:6px; }
+.lp-tabela th, .lp-tabela td{ padding:10px 12px; border-bottom:1px solid #3A3E44; text-align:left; vertical-align:top; }
+.lp-tabela th{ color:#fff; font-weight:600; }
+.lp-tabela td.sim{ color:var(--amber); font-weight:700; white-space:nowrap; }
+.lp-por{ font-size:13px; color:#9AA0A8; margin-top:2px; }
 .lp-top{ max-width:1100px; margin:0 auto; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; }
 .lp-logo{ font-size:26px; color:#fff; }
 .lp-logo span{ color:var(--amber); }
@@ -314,6 +328,9 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
       <div><h3>🏷️ Sua marca no PDF</h3><p>Logo, nome, CREA/CAU, telefone e e-mail no cabeçalho de cada página.</p></div>
       <div><h3>🗂️ Histórico na nuvem</h3><p>Todos os diagnósticos e vistorias salvos, com busca, para gerar o PDF de novo quando precisar.</p></div>
       <div><h3>📱 Funciona no celular</h3><p>Abre no navegador e pode ser instalado na tela inicial, sem loja de aplicativos.</p></div>
+      <div><h3>🔐 QR Code de autenticidade</h3><p>Cada laudo sai com um código e um QR Code. Quem recebe confere na hora que o documento é verdadeiro e quem o emitiu.</p></div>
+      <div><h3>✏️ Marque na foto</h3><p>Setas, círculos e traços em vermelho sobre a trinca, e até 3 fotos extras com legenda no registro fotográfico.</p></div>
+      <div><h3>🚦 Prioridade pela NBR 16747</h3><p>Quadro de prioridade 1, 2 ou 3 no laudo, para o cliente entender o que é urgente e o que pode esperar.</p></div>
     </div>
     <div class="lp-exemplos">
       <a href="exemplo/diagnostico-ia-exemplo.pdf" target="_blank" rel="noopener">📄 Exemplo: diagnóstico de fissura por IA</a>
@@ -326,11 +343,30 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
     <h2 class="display">Planos</h2>
     <div class="lp-planos">
       <div class="lp-plano"><h3>Teste grátis</h3><div class="lp-preco">7 dias</div><ul><li>Tudo liberado</li><li>5 diagnósticos por IA</li><li>Vistorias completas à vontade</li><li>Sem cartão</li></ul></div>
-      <div class="lp-plano"><h3>Essencial</h3><div class="lp-preco">R$ 49<small>/mês</small></div><ul><li>15 diagnósticos por IA por mês</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e assinatura</li><li>Anual: R$ 490 (2 meses grátis)</li></ul></div>
-      <div class="lp-plano lp-destaque"><h3>Profissional</h3><div class="lp-preco">R$ 89<small>/mês</small></div><ul><li>Diagnósticos por IA à vontade*</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e assinatura</li><li>Anual: R$ 890 (2 meses grátis)</li></ul></div>
+      <div class="lp-plano"><h3>Pacote avulso</h3><div class="lp-preco">R$ 29,90</div><div class="lp-por">10 diagnósticos · R$ 2,99 cada</div><ul><li>Sem mensalidade</li><li>Vale por 12 meses</li><li>PDF com a sua marca e QR Code</li><li>Ideal para uso eventual</li></ul></div>
+      <div class="lp-plano"><h3>Essencial</h3><div class="lp-preco">R$ 39<small>/mês</small></div><div class="lp-por">20 diagnósticos · menos de R$ 2 cada</div><ul><li>Vistorias completas à vontade</li><li>PDF com a sua marca e QR Code</li><li>Assinatura na tela</li><li>Anual: R$ 390 (2 meses grátis)</li></ul></div>
+      <div class="lp-plano lp-destaque"><h3>Profissional</h3><div class="lp-preco">R$ 79<small>/mês</small></div><div class="lp-por">Até 150 diagnósticos · ~R$ 0,53 cada</div><ul><li>Diagnósticos por IA à vontade*</li><li>Vistorias completas à vontade</li><li>PDF com a sua marca e QR Code</li><li>Anual: R$ 790 (2 meses grátis)</li></ul></div>
     </div>
-    <p class="lp-nota-precos">* Até 150 diagnósticos por IA a cada 30 dias. Pagamento por Pix, com liberação automática. Quem assina durante o teste não perde os dias que faltam. 7 dias para desistir com reembolso integral.</p>
+    <p class="lp-nota-precos">* Até 150 diagnósticos por IA a cada 30 dias. Pagamento por Pix, com liberação automática. Sem renovação automática e sem fidelidade. Quem assina durante o teste não perde os dias que faltam. 7 dias para desistir com reembolso integral.</p>
     <div class="lp-ctas" style="justify-content:center;"><a class="btn btn-primary lp-btn" href="#entrar" onclick="modoLogin('criar')">Começar o teste grátis</a></div>
+  </section>
+
+  <section class="lp-sec">
+    <h2 class="display">Na hora de comparar</h2>
+    <p style="color:#B9BEC5; font-size:15px; margin-bottom:10px;">Confira se a ferramenta que você está avaliando entrega tudo isto:</p>
+    <table class="lp-tabela">
+      <tr><th>O que importa</th><th>VistorIA</th></tr>
+      <tr><td>Diagnóstico preliminar por foto com hipóteses de causa, investigações e normas ABNT</td><td class="sim">✓ Sim</td></tr>
+      <tr><td>Laudo em PDF com <b>a sua</b> marca (logo, nome, CREA/CAU, contato) e a sua assinatura</td><td class="sim">✓ Sim</td></tr>
+      <tr><td>QR Code de autenticidade em cada laudo</td><td class="sim">✓ Sim</td></tr>
+      <tr><td>Marcação na foto e registro fotográfico com legendas</td><td class="sim">✓ Sim</td></tr>
+      <tr><td>Quadro de prioridade pela NBR 16747</td><td class="sim">✓ Sim</td></tr>
+      <tr><td>Vistoria completa de locação, obra nova e reforma, com assinatura do cliente</td><td class="sim">✓ Incluída</td></tr>
+      <tr><td>Histórico na nuvem para gerar o PDF de novo</td><td class="sim">✓ Sim</td></tr>
+      <tr><td>Uso eventual sem mensalidade</td><td class="sim">✓ R$ 2,99 por diagnóstico</td></tr>
+      <tr><td>Uso intenso</td><td class="sim">✓ ~R$ 0,53 por diagnóstico</td></tr>
+      <tr><td>Teste antes de pagar</td><td class="sim">✓ 7 dias grátis, sem cartão</td></tr>
+    </table>
   </section>
   <section class="lp-sec lp-final">
     <h2 class="display">Teste no seu próximo atendimento</h2>
@@ -384,10 +420,11 @@ const supaOk = !!sb;
 
 // Planos e links de pagamento (Asaas). Enquanto um link estiver vazio, o botão abre o WhatsApp.
 const PLANOS_VIST = {
-  'essencial-mensal':    { nome:'Essencial mensal',    preco:'R$ 49/mês',  link:'' },
-  'essencial-anual':     { nome:'Essencial anual',     preco:'R$ 490/ano', link:'' },
-  'profissional-mensal': { nome:'Profissional mensal', preco:'R$ 89/mês',  link:'' },
-  'profissional-anual':  { nome:'Profissional anual',  preco:'R$ 890/ano', link:'' },
+  'essencial-mensal':    { nome:'Essencial mensal',    preco:'R$ 39/mês',  link:'' },
+  'essencial-anual':     { nome:'Essencial anual',     preco:'R$ 390/ano', link:'' },
+  'profissional-mensal': { nome:'Profissional mensal', preco:'R$ 79/mês',  link:'' },
+  'profissional-anual':  { nome:'Profissional anual',  preco:'R$ 790/ano', link:'' },
+  'pacote-10':           { nome:'Pacote 10 diagnósticos', preco:'R$ 29,90', link:'' },
 };
 const WHATS_SUPORTE = '5524992096103';
 let CONTA = null; // situação do plano: vist_status()
@@ -420,7 +457,7 @@ async function apiFetch(path, options={}){
         try{ status = error.context.status; const j = await error.context.json(); if(j && j.message) msg = j.message; }catch(e){}
         return { ok:false, status, data:{ message: msg } };
       }
-      if(CONTA && typeof data._restantes === 'number'){ CONTA.restantes = data._restantes; CONTA.usados = CONTA.limite - data._restantes; desenharSeloPlano(); }
+      if(CONTA && typeof data._restantes === 'number') await carregarConta();
       return { ok:true, status:200, data };
     }
     const tabela = recurso === 'diagnosticos' ? 'vist_diagnosticos' : 'vist_vistorias';
@@ -579,17 +616,24 @@ function tabelaDiagnosticos(list){
    ====================================================== */
 let imagemAtual = null; // base64 sem prefixo data:
 let resultadoIA = null;
+let fotosExtras = []; // [{img: base64 sem prefixo, legenda}] · até 3, entram no registro fotográfico do PDF
 
-function avisoPlanoEncerrado(el, oque){
+function avisoPlanoEncerrado(el, oque, ia){
+  const usouTudo = CONTA && CONTA.ativo;
   el.innerHTML = `<div class="panel" style="border-left:4px solid var(--red);">
-    <h2>Seu ${CONTA && CONTA.em_teste ? 'teste grátis' : 'plano'} terminou</h2>
-    <div style="font-size:14px; margin-bottom:12px;">Para ${oque}, escolha um plano. Seu histórico continua salvo e você pode gerar os PDFs de novo quando quiser.</div>
-    <button class="btn btn-primary btn-sm" onclick="abrirPlano()">Ver planos</button>
+    <h2>${usouTudo ? 'Você usou todos os diagnósticos por IA do ' + (CONTA.em_teste ? 'teste' : 'plano') : 'Seu ' + (CONTA && CONTA.em_teste ? 'teste grátis' : 'plano') + ' terminou'}</h2>
+    <div style="font-size:14px; margin-bottom:12px;">Para ${oque}, ${ia ? 'compre um pacote avulso (10 diagnósticos por R$ 29,90, sem mensalidade) ou escolha um plano' : 'escolha um plano'}. Seu histórico continua salvo e você pode gerar os PDFs de novo quando quiser.</div>
+    <button class="btn btn-primary btn-sm" onclick="abrirPlano()">${ia ? 'Ver pacote e planos' : 'Ver planos'}</button>
   </div>`;
 }
+// diagnósticos por IA disponíveis agora: o que sobra da cota do plano + créditos do pacote avulso
+function analisesDisponiveis(){
+  if(!CONTA) return null;
+  return (CONTA.ativo ? CONTA.restantes : 0) + (CONTA.creditos || 0);
+}
 function renderNovo(el){
-  if(CONTA && !CONTA.ativo){ avisoPlanoEncerrado(el, 'fazer novos diagnósticos por IA'); return; }
-  imagemAtual = null; resultadoIA = null;
+  if(CONTA && analisesDisponiveis() <= 0){ avisoPlanoEncerrado(el, 'fazer novos diagnósticos por IA', true); return; }
+  imagemAtual = null; resultadoIA = null; fotosExtras = [];
   el.innerHTML = `
     ${configNote()}
     <div class="panel">
@@ -605,8 +649,21 @@ function renderNovo(el){
         </div>
         <img id="preview-img" class="hidden">
       </div>
+      <div id="foto-acoes" class="hidden" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="marcarFotoPrincipal()">✏️ Marcar na foto</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('input-galeria').click()">🔄 Trocar foto</button>
+      </div>
+      <div style="font-size:12px; color:var(--ink-soft); margin-top:6px;">Dica: marque a trinca com uma seta ou um círculo vermelho. A marcação ajuda a IA e sai no laudo.</div>
       <input type="file" id="input-camera" accept="image/*" capture="environment" class="hidden">
       <input type="file" id="input-galeria" accept="image/*" class="hidden">
+    </div>
+
+    <div class="panel">
+      <h2>Fotos extras <span class="tag">opcional · até 3</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:10px;">Vista geral, detalhe de perto, outro ponto do imóvel. Entram no registro fotográfico do laudo, com legenda. A IA analisa só a foto principal.</div>
+      <div id="extras-lista"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-extra" onclick="document.getElementById('input-extra').click()">+ Adicionar foto extra</button>
+      <input type="file" id="input-extra" accept="image/*" class="hidden">
     </div>
 
     <div class="panel">
@@ -620,7 +677,7 @@ function renderNovo(el){
 
     <div style="margin-bottom:18px;">
       <button class="btn btn-primary" id="btn-analisar" disabled onclick="analisarFoto()">Analisar com IA</button>
-      ${CONTA ? `<span style="font-size:12.5px; color:var(--ink-soft); margin-left:10px;">${CONTA.restantes} análise(s) restante(s)</span>` : ''}
+      ${CONTA ? `<span style="font-size:12.5px; color:var(--ink-soft); margin-left:10px;">${analisesDisponiveis()} análise(s) disponível(is)</span>` : ''}
     </div>
 
     <div id="resultado-area"></div>
@@ -628,6 +685,8 @@ function renderNovo(el){
 
   document.getElementById('input-camera').addEventListener('change', (e)=> processarFotoSelecionada(e.target.files[0]));
   document.getElementById('input-galeria').addEventListener('change', (e)=> processarFotoSelecionada(e.target.files[0]));
+  document.getElementById('input-extra').addEventListener('change', (e)=> adicionarFotoExtra(e.target.files[0]));
+  desenharExtras();
 }
 
 function comprimirImagem(file, maxDim=1600, qualidade=0.75){
@@ -663,11 +722,106 @@ async function processarFotoSelecionada(file){
     const img = document.getElementById('preview-img');
     img.src = dataUrl;
     img.classList.remove('hidden');
+    document.getElementById('foto-acoes').classList.remove('hidden');
     document.getElementById('btn-analisar').disabled = false;
   }catch(e){
     toast('Erro ao processar a imagem', false);
     console.error(e);
   }
+}
+
+function marcarFotoPrincipal(){
+  if(!imagemAtual) return;
+  abrirMarcador(imagemAtual, (nova)=>{
+    imagemAtual = nova;
+    document.getElementById('preview-img').src = 'data:image/jpeg;base64,' + nova;
+    if(resultadoIA) toast('Foto marcada. A análise já feita continua valendo.');
+  });
+}
+async function adicionarFotoExtra(file){
+  if(!file) return;
+  if(fotosExtras.length >= 3){ toast('Máximo de 3 fotos extras.', false); return; }
+  try{
+    const dataUrl = await comprimirImagem(file, 1280, 0.72);
+    fotosExtras.push({ img: dataUrl.split(',')[1], legenda: '' });
+    desenharExtras();
+  }catch(e){ toast('Erro ao processar a imagem', false); }
+  document.getElementById('input-extra').value = '';
+}
+function desenharExtras(){
+  const el = document.getElementById('extras-lista'); if(!el) return;
+  el.innerHTML = fotosExtras.map((f,i)=>`
+    <div style="display:flex; gap:10px; align-items:flex-start; margin-bottom:10px;">
+      <img src="data:image/jpeg;base64,${f.img}" style="width:90px; height:68px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+      <div style="flex:1; min-width:0;">
+        <input placeholder="Legenda (ex.: vista geral da fachada)" maxlength="90" value="${esc(f.legenda)}" oninput="fotosExtras[${i}].legenda=this.value" style="width:100%;">
+        <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="marcarExtra(${i})">✏️ Marcar</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="fotosExtras.splice(${i},1); desenharExtras()">Remover</button>
+        </div>
+      </div>
+    </div>`).join('');
+  const b = document.getElementById('btn-extra'); if(b) b.classList.toggle('hidden', fotosExtras.length >= 3);
+}
+function marcarExtra(i){ abrirMarcador(fotosExtras[i].img, (nova)=>{ fotosExtras[i].img = nova; desenharExtras(); }); }
+
+// ---------- Marcador: setas, círculos e traço livre em vermelho sobre a foto
+function abrirMarcador(base64, aoSalvar){
+  const img = new Image();
+  img.onload = ()=>{
+    const W = img.width, H = img.height, esp = Math.max(4, Math.round(Math.max(W,H) / 160));
+    const formas = []; let ferramenta = 'seta', atual = null;
+    const ov = document.createElement('div');
+    ov.className = 'marcador';
+    ov.innerHTML = `<div class="marcador-barra">
+        <button data-f="seta" class="btn btn-sm">➚ Seta</button>
+        <button data-f="circulo" class="btn btn-sm">◯ Círculo</button>
+        <button data-f="livre" class="btn btn-sm">✎ Traço</button>
+        <button data-a="desfazer" class="btn btn-sm btn-outline">↶ Desfazer</button>
+        <span style="flex:1"></span>
+        <button data-a="cancelar" class="btn btn-sm btn-outline">Cancelar</button>
+        <button data-a="salvar" class="btn btn-sm btn-primary">Salvar marcação</button>
+      </div>
+      <div class="marcador-area"><canvas></canvas></div>
+      <div class="marcador-dica">Arraste o dedo sobre a foto para desenhar.</div>`;
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    function seta(c, f){
+      const ang = Math.atan2(f.y2-f.y1, f.x2-f.x1), cab = esp*4.5;
+      c.beginPath(); c.moveTo(f.x1,f.y1); c.lineTo(f.x2,f.y2); c.stroke();
+      c.beginPath(); c.moveTo(f.x2,f.y2);
+      c.lineTo(f.x2 - cab*Math.cos(ang-0.45), f.y2 - cab*Math.sin(ang-0.45));
+      c.lineTo(f.x2 - cab*Math.cos(ang+0.45), f.y2 - cab*Math.sin(ang+0.45));
+      c.closePath(); c.fill();
+    }
+    function desenhaForma(c, f){
+      c.strokeStyle = '#FF1A1A'; c.fillStyle = '#FF1A1A'; c.lineWidth = esp; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.shadowColor = 'rgba(0,0,0,0.55)'; c.shadowBlur = esp;
+      if(f.t === 'seta') seta(c, f);
+      else if(f.t === 'circulo'){ c.beginPath(); c.ellipse((f.x1+f.x2)/2, (f.y1+f.y2)/2, Math.max(2,Math.abs(f.x2-f.x1)/2), Math.max(2,Math.abs(f.y2-f.y1)/2), 0, 0, Math.PI*2); c.stroke(); }
+      else { c.beginPath(); f.pts.forEach((p,k)=> k ? c.lineTo(p.x,p.y) : c.moveTo(p.x,p.y)); c.stroke(); }
+      c.shadowBlur = 0;
+    }
+    function redesenhar(){ ctx.drawImage(img,0,0); formas.forEach(f=>desenhaForma(ctx,f)); if(atual) desenhaForma(ctx, atual); }
+    function pos(e){ const r = cv.getBoundingClientRect(); return { x:(e.clientX-r.left)*W/r.width, y:(e.clientY-r.top)*H/r.height }; }
+    function marcaBotao(){ ov.querySelectorAll('[data-f]').forEach(b=>{ b.classList.toggle('btn-primary', b.dataset.f===ferramenta); b.classList.toggle('btn-outline', b.dataset.f!==ferramenta); }); }
+    cv.addEventListener('pointerdown', e=>{ e.preventDefault(); cv.setPointerCapture(e.pointerId); const p = pos(e);
+      atual = ferramenta === 'livre' ? { t:'livre', pts:[p] } : { t:ferramenta, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; });
+    cv.addEventListener('pointermove', e=>{ if(!atual) return; const p = pos(e);
+      if(atual.t === 'livre') atual.pts.push(p); else { atual.x2 = p.x; atual.y2 = p.y; } redesenhar(); });
+    const fim = ()=>{ if(!atual) return; const ok = atual.t === 'livre' ? atual.pts.length > 1 : Math.hypot(atual.x2-atual.x1, atual.y2-atual.y1) > esp*2; if(ok) formas.push(atual); atual = null; redesenhar(); };
+    cv.addEventListener('pointerup', fim); cv.addEventListener('pointercancel', fim);
+    ov.addEventListener('click', e=>{
+      const b = e.target.closest('button'); if(!b) return;
+      if(b.dataset.f){ ferramenta = b.dataset.f; marcaBotao(); return; }
+      if(b.dataset.a === 'desfazer'){ formas.pop(); redesenhar(); }
+      if(b.dataset.a === 'cancelar') ov.remove();
+      if(b.dataset.a === 'salvar'){ redesenhar(); const nova = cv.toDataURL('image/jpeg', 0.82).split(',')[1]; ov.remove(); if(formas.length) aoSalvar(nova); }
+    });
+    marcaBotao(); redesenhar();
+  };
+  img.src = 'data:image/jpeg;base64,' + base64;
 }
 
 async function analisarFoto(){
@@ -691,7 +845,8 @@ async function analisarFoto(){
 
   resultadoIA = resp.data;
   delete resultadoIA._restantes; delete resultadoIA._modelo;
-  if(CONTA && CONTA.restantes <= 2) toast(CONTA.restantes ? `Restam ${CONTA.restantes} análise(s) por IA no seu ${CONTA.em_teste ? 'teste' : 'plano'}.` : `Essa foi a última análise por IA do seu ${CONTA.em_teste ? 'teste' : 'plano'}.`);
+  const disp = analisesDisponiveis();
+  if(CONTA && disp <= 2) toast(disp ? `Restam ${disp} análise(s) por IA.` : 'Essa foi a sua última análise por IA disponível.');
   renderResultado();
 }
 
@@ -793,7 +948,8 @@ async function salvarDiagnostico(){
     recomendacao: r.diagnostico_medidas || '',
     observacoes: obs,
     status: 'aberto',
-    analise_json: JSON.stringify(r)
+    analise_json: JSON.stringify(r),
+    fotos_extras: fotosExtras.length ? JSON.stringify(fotosExtras.map(f=>({ img:f.img, legenda:(f.legenda||'').trim().slice(0,90) }))) : null
   };
 
   const resp = await apiFetch('/api/diagnosticos', { method:'POST', body: JSON.stringify(payload) });
@@ -1163,10 +1319,11 @@ async function excluirVistoria(id){
   document.querySelector('[data-view="historico"]').click();
 }
 
-function gerarLaudoPDF(modo){
+async function gerarLaudoPDF(modo){
   const v = window._vistAtual;
   const conteudo = window._vistConteudo;
   if(!v || !conteudo) return;
+  const codigoAut = await codigoAutenticidade('vistoria', v.id, v.titulo || 'Vistoria', labelCategoria(v.categoria), '');
   const doc = novoPDF();
   const perfil = lerPerfil();
 
@@ -1248,9 +1405,10 @@ function gerarLaudoPDF(modo){
   y += 8;
   y = desenharAssinaturas(doc, y, v, conteudo, perfil);
 
+  if(codigoAut){ if(y > 238){ y = novaPagina(); } y = blocoAutenticidade(doc, y, codigoAut); }
   if(y > 268){ y = novaPagina(); }
   rodapeMarca(doc, y);
-  numerarPaginas(doc);
+  numerarPaginas(doc, codigoAut);
 
   const nomeArquivo = `vistoria-${(v.titulo||'laudo').replace(/[^a-z0-9]/gi,'-')}.pdf`;
   const emissor = perfil.nome || perfil.empresa || '';
@@ -1290,6 +1448,7 @@ async function verDiagnostico(id){
     <div class="panel">
       <h2>${esc(d.titulo || 'Diagnóstico')} <span class="tag">${fmtDateTime(d.criado_em)}</span></h2>
       ${d.imagem_base64 ? `<img src="data:image/jpeg;base64,${esc(d.imagem_base64)}" style="max-width:100%; max-height:320px; border-radius:6px; margin-bottom:14px;">` : ''}
+      ${(()=>{ let ex=[]; try{ ex = d.fotos_extras ? JSON.parse(d.fotos_extras) : []; }catch(e){} return ex.length ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">${ex.map((f,i)=>`<figure style="margin:0; width:130px;"><img src="data:image/jpeg;base64,${esc(f.img)}" style="width:130px; height:98px; object-fit:cover; border-radius:6px;"><figcaption style="font-size:11.5px; color:var(--ink-soft);">Foto ${i+2}${f.legenda ? ' — ' + esc(f.legenda) : ''}</figcaption></figure>`).join('')}</div>` : ''; })()}
       <div class="row">
         <div><strong>Obra/Local:</strong> ${esc(d.obra_local || '-')}</div>
         <div><strong>Endereço:</strong> ${esc(d.endereco || '-')}</div>
@@ -1316,9 +1475,12 @@ async function excluirDiagnostico(id){
   document.querySelector('[data-view="historico"]').click();
 }
 
-function gerarRelatorioPDF(id, modo){
+async function gerarRelatorioPDF(id, modo){
   const d = window._diagAtual;
   if(!d) return;
+  const codigoAut = await codigoAutenticidade('diagnostico', d.id, d.titulo || 'Diagnóstico', d.obra_local || '', d.gravidade || '');
+  let extras = [];
+  try{ extras = d.fotos_extras ? JSON.parse(d.fotos_extras) : []; }catch(e){ extras = []; }
   let analise = null;
   if(d.analise_json){
     try{ analise = JSON.parse(d.analise_json); }catch(e){ analise = null; }
@@ -1356,7 +1518,8 @@ function gerarRelatorioPDF(id, modo){
   doc.text(`Data: ${fmtDateTime(d.criado_em)}   ·   Responsável: ${perfil.nome || perfil.empresa || d.usuario_email || '-'}`, 15, y); y+=9;
 
   if(d.imagem_base64){
-    try{ doc.addImage(`data:image/jpeg;base64,${d.imagem_base64}`, 'JPEG', 15, y, 75, 56); }catch(e){ console.error(e); }
+    try{ fotoNoPDF(doc, d.imagem_base64, 15, y, 75, 56); }catch(e){ console.error(e); }
+    if(extras.length){ doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,120,120); doc.text('Foto 1', 15, y + 59.5); doc.setTextColor(0,0,0); }
   }
 
   // PDF não desenha emoji: usa texto + bolinha colorida
@@ -1381,8 +1544,12 @@ function gerarRelatorioPDF(id, modo){
   if(analise?.elemento_afetado){ doc.text(`Elemento: ${analise.elemento_afetado}`, xInfo, yInfo); yInfo+=5.5; }
   if(analise?.local_aparente){ doc.text(`Local: ${analise.local_aparente}`, xInfo, yInfo); yInfo+=5.5; }
   doc.text(`Elemento estrutural: ${d.provavel_estrutural || '-'}`, xInfo, yInfo); yInfo+=5.5;
+  let autNoTopo = false;
+  if(codigoAut && d.imagem_base64 && yInfo < y + 30){ yInfo = seloAutenticidade(doc, xInfo, Math.max(yInfo + 2, y + 32), codigoAut); autNoTopo = true; }
 
   y = Math.max(y + (d.imagem_base64 ? 62 : 0), yInfo) + 4;
+
+  y = quadroPrioridade(doc, y, analise ? analise.classificacao_risco : d.gravidade);
 
   if(analise){
     if(analise.caracteristicas_visuais){
@@ -1433,6 +1600,23 @@ function gerarRelatorioPDF(id, modo){
     y = paragrafo(y, d.observacoes);
   }
 
+  if(extras.length){
+    y = checarQuebra(y, 200);
+    y = tituloSecao(y + 2, 'REGISTRO FOTOGRÁFICO');
+    for(let i = 0; i < extras.length; i += 2){
+      y = checarQuebra(y, 205);
+      [extras[i], extras[i+1]].forEach((f, k)=>{
+        if(!f) return;
+        const x = 15 + k * 93;
+        try{ fotoNoPDF(doc, f.img, x, y, 87, 58); }catch(e){ console.error(e); }
+        doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(80,80,80);
+        doc.text(doc.splitTextToSize(`Foto ${i + k + 2}${f.legenda ? ' — ' + f.legenda : ''}`, 87).slice(0,2), x, y + 62);
+        doc.setTextColor(0,0,0);
+      });
+      y += 70;
+    }
+  }
+
   y = checarQuebra(y, 250);
   y += 6;
   doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120,120,120);
@@ -1444,9 +1628,10 @@ function gerarRelatorioPDF(id, modo){
     y = checarQuebra(y, 226);
     y = desenharAssinaturaResponsavel(doc, y, perfil);
   }
-  y = checarQuebra(y, 268);
+  if(codigoAut && !autNoTopo){ y = checarQuebra(y, 238); y = blocoAutenticidade(doc, y, codigoAut); }
+  y = checarQuebra(y, 272);
   rodapeMarca(doc, y);
-  numerarPaginas(doc);
+  numerarPaginas(doc, codigoAut);
 
   const nomeArquivo = `diagnostico-${(d.titulo||'relatorio').replace(/[^a-z0-9]/gi,'-')}.pdf`;
   const emissor = perfil.nome || perfil.empresa || '';
@@ -1814,14 +1999,96 @@ function rodapeMarca(doc, y){
   doc.setTextColor(0,0,0);
 }
 
-function numerarPaginas(doc){
+function numerarPaginas(doc, codigoAut){
   const n = doc.getNumberOfPages();
   for(let i = 1; i <= n; i++){
     doc.setPage(i);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,150,150);
     doc.text(`Página ${i} de ${n}`, 195, 291, { align:'right' });
+    if(codigoAut) doc.text(`Código de autenticidade ${codigoAut} · confira em ${URL_VALIDAR.replace('https://','')}`, 15, 291);
   }
   doc.setTextColor(0,0,0);
+}
+
+/* ---------- Autenticidade: código + QR Code em cada laudo ---------- */
+const URL_VALIDAR = 'https://fosterfcs.github.io/vistoria/validar.html';
+const _codigosAut = {};
+async function codigoAutenticidade(tipo, refId, titulo, local, risco){
+  if(!sb || !refId) return null;
+  if(_codigosAut[refId]) return _codigosAut[refId];
+  const p = lerPerfil();
+  try{
+    const r = await sb.rpc('vist_registrar_laudo', { p_tipo: tipo, p_ref: refId, p_titulo: titulo, p_local: local,
+      p_emissor: p.nome || p.empresa || usuarioLogado || '', p_registro: p.registro || '', p_risco: risco });
+    if(r.error) throw r.error;
+    return (_codigosAut[refId] = r.data);
+  }catch(e){ console.error(e); toast('Sem conexão: o PDF sai sem o QR Code de autenticidade.', false); return null; }
+}
+function desenharQR(doc, texto, x, y, tam){
+  if(typeof qrcode !== 'function') return false;
+  const q = qrcode(0, 'M'); q.addData(texto); q.make();
+  const n = q.getModuleCount(), m = tam / n;
+  doc.setFillColor(0,0,0);
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++) if(q.isDark(r, c)) doc.rect(x + c*m, y + r*m, m + 0.02, m + 0.02, 'F');
+  return true;
+}
+function blocoAutenticidade(doc, y, codigo){
+  const url = `${URL_VALIDAR}?c=${encodeURIComponent(codigo)}`;
+  doc.setDrawColor(210,210,210); doc.setLineWidth(0.3); doc.roundedRect(15, y, 180, 30, 2, 2);
+  const temQR = desenharQR(doc, url, 18, y + 3, 24);
+  const x = temQR ? 47 : 19;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(0,0,0);
+  doc.text('Documento com verificação de autenticidade', x, y + 8);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(70,70,70);
+  doc.text(`Código: ${codigo}`, x, y + 14);
+  doc.text(doc.splitTextToSize(`Aponte a câmera do celular para o QR Code ou acesse ${URL_VALIDAR.replace('https://','')} e digite o código para conferir quem emitiu e quando.`, 195 - x), x, y + 19.5);
+  doc.setTextColor(0,0,0);
+  return y + 36;
+}
+// versão compacta, ao lado da foto (relatório do diagnóstico)
+function seloAutenticidade(doc, x, y, codigo){
+  const url = `${URL_VALIDAR}?c=${encodeURIComponent(codigo)}`;
+  const temQR = desenharQR(doc, url, x, y, 22);
+  const xt = temQR ? x + 25 : x;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(0,0,0);
+  doc.text('Autenticidade', xt, y + 4);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  doc.text(codigo, xt, y + 9);
+  doc.setFontSize(7.2); doc.setTextColor(90,90,90);
+  doc.text(doc.splitTextToSize(`Aponte a câmera para o QR Code ou confira em ${URL_VALIDAR.replace('https://','')}`, 195 - xt), xt, y + 13.5);
+  doc.setTextColor(0,0,0);
+  return y + 24;
+}
+// encaixa a foto na caixa sem distorcer
+function fotoNoPDF(doc, base64, x, y, wMax, hMax){
+  const src = `data:image/jpeg;base64,${base64}`;
+  const pr = doc.getImageProperties(src);
+  const k = Math.min(wMax / pr.width, hMax / pr.height);
+  const w = pr.width * k, h = pr.height * k;
+  doc.addImage(src, 'JPEG', x + (wMax - w) / 2, y + (hMax - h) / 2, w, h);
+}
+// Quadro de prioridade (patamares de urgência da ABNT NBR 16747)
+function quadroPrioridade(doc, y, risco){
+  const nivel = { critico:1, alta:1, prioridade:2, media:2, atencao:3, baixo:3, baixa:3 }[risco] || 0;
+  const cel = [
+    { n:1, t:'PRIORIDADE 1', s:'Agir imediatamente', d:'Risco à saúde, à segurança ou ao uso', cor:[214,69,69] },
+    { n:2, t:'PRIORIDADE 2', s:'Agir em curto prazo', d:'Perda parcial de desempenho, pode se agravar', cor:[224,123,57] },
+    { n:3, t:'PRIORIDADE 3', s:'Programar a manutenção', d:'Pequena perda de desempenho ou estética', cor:[47,158,110] },
+  ];
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(90,90,90);
+  doc.text('PRIORIDADE DE AÇÃO (patamares de urgência da ABNT NBR 16747)', 15, y); y += 2.5;
+  cel.forEach((c,i)=>{
+    const x = 15 + i * 60.5, ativo = c.n === nivel;
+    if(ativo){ doc.setFillColor(c.cor[0], c.cor[1], c.cor[2]); doc.roundedRect(x, y, 59, 17, 1.5, 1.5, 'F'); doc.setTextColor(255,255,255); }
+    else { doc.setDrawColor(215,215,215); doc.setLineWidth(0.3); doc.roundedRect(x, y, 59, 17, 1.5, 1.5); doc.setTextColor(165,165,165); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.text((ativo ? '> ' : '') + c.t, x + 3, y + 5);
+    doc.setFontSize(8); doc.text(c.s, x + 3, y + 9.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.text(doc.splitTextToSize(c.d, 54)[0], x + 3, y + 13.8);
+  });
+  doc.setTextColor(0,0,0);
+  y += 20;
+  if(!nivel){ doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(120,120,120); doc.text('A foto não permitiu definir a prioridade. Recomenda-se vistoria presencial.', 15, y + 1); doc.setTextColor(0,0,0); y += 5; }
+  return y + 4;
 }
 
 // Assinatura única do responsável (relatório da IA), usando a assinatura salva no perfil.
@@ -1937,7 +2204,8 @@ function desenharSeloPlano(){
   if(!b || !CONTA){ return; }
   b.classList.remove('hidden', 'fim', 'pago');
   const d = diasRestantes();
-  if(!CONTA.ativo){ b.textContent = CONTA.em_teste ? 'Teste encerrado · Assinar' : 'Plano vencido · Renovar'; b.classList.add('fim'); }
+  if(!CONTA.ativo && CONTA.creditos > 0){ b.textContent = `Pacote · ${CONTA.creditos} diagnóstico${CONTA.creditos===1?'':'s'}`; b.classList.add('pago'); }
+  else if(!CONTA.ativo){ b.textContent = CONTA.em_teste ? 'Teste encerrado · Assinar' : 'Plano vencido · Renovar'; b.classList.add('fim'); }
   else if(CONTA.em_teste){ b.textContent = `Teste grátis · ${d} dia${d===1?'':'s'} · Assinar`; }
   else { b.textContent = `${nomePlano()} · ${d} dia${d===1?'':'s'}`; b.classList.add('pago'); if(d <= 5) b.classList.add('fim'); }
 }
@@ -1965,24 +2233,27 @@ async function renderPlano(el){
   const cartao = (titulo, preco, itens, chaves) => `<div class="plano-app">
       <h3>${titulo}</h3><div class="preco">${preco}</div>
       <ul>${itens.map(t=>`<li>${t}</li>`).join('')}</ul>
-      <div class="btns">${chaves.map((k,n)=>`<button class="btn ${n===0?'btn-primary':'btn-outline'} btn-sm" onclick="pagarPlano('${k}')">${n===0?'Pagar mensal com Pix':'Pagar anual com Pix · '+PLANOS_VIST[k].preco}</button>`).join('')}</div>
+      <div class="btns">${chaves.map((k,n)=>`<button class="btn ${n===0?'btn-primary':'btn-outline'} btn-sm" onclick="pagarPlano('${k}')">${k==='pacote-10'?'Comprar com Pix':n===0?'Pagar mensal com Pix':'Pagar anual com Pix · '+PLANOS_VIST[k].preco}</button>`).join('')}</div>
     </div>`;
+  const credTxt = CONTA.creditos > 0 ? `<div style="margin-top:10px; font-size:13.5px;"><b>Pacote avulso:</b> ${CONTA.creditos} diagnóstico${CONTA.creditos===1?'':'s'} por IA, válidos até ${fmtDate(CONTA.creditos_ate)}. ${CONTA.ativo ? 'São usados quando a cota do plano acabar.' : ''}</div>` : '';
   el.innerHTML = `
     <div class="panel">
       <h2>Situação</h2>
       <div style="font-size:14.5px;">${situacao}</div>
       <div style="margin-top:14px; font-size:13.5px;"><b>Diagnósticos por IA:</b> ${CONTA.usados} de ${CONTA.limite} ${CONTA.em_teste ? 'no teste' : 'nos últimos 30 dias'}</div>
       <div class="uso-barra"><i style="width:${pct}%"></i></div>
-      <div style="font-size:12.5px; color:var(--ink-soft);">Vistorias completas não usam IA e não têm limite.</div>
+      ${credTxt}
+      <div style="font-size:12.5px; color:var(--ink-soft); margin-top:6px;">Vistorias completas não usam IA e não têm limite enquanto o plano ou o teste estiver ativo.</div>
     </div>
     <div class="panel">
       <h2>Planos</h2>
       <div class="planos-app">
-        ${cartao('Essencial', 'R$ 49/mês', ['15 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e assinatura'], ['essencial-mensal','essencial-anual'])}
-        ${cartao('Profissional', 'R$ 89/mês', ['Até 150 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e assinatura'], ['profissional-mensal','profissional-anual'])}
+        ${cartao('Pacote avulso', 'R$ 29,90', ['10 diagnósticos por IA (R$ 2,99 cada)','Sem mensalidade, vale por 12 meses','PDF com a sua marca e QR Code'], ['pacote-10'])}
+        ${cartao('Essencial', 'R$ 39/mês', ['20 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e QR Code'], ['essencial-mensal','essencial-anual'])}
+        ${cartao('Profissional', 'R$ 79/mês', ['Até 150 diagnósticos por IA por mês','Vistorias completas à vontade','PDF com a sua marca e QR Code'], ['profissional-mensal','profissional-anual'])}
       </div>
       <div style="font-size:13px; color:var(--ink-soft); margin-top:14px; line-height:1.5;">
-        Pagamento por <b>Pix</b>, gerado aqui no app: o plano é ativado sozinho, em poucos segundos, assim que o Pix cair.
+        Pagamento por <b>Pix</b>, gerado aqui no app: o plano ou o pacote é liberado sozinho, em poucos segundos, assim que o Pix cair.
         Quem assina durante o teste não perde os dias que faltam, e quem renova antes do vencimento soma os dias.
         O plano não renova sozinho: perto do vencimento, é só pagar de novo por aqui. Você tem 7 dias para desistir com reembolso integral (<a href="termos.html" target="_blank" rel="noopener">termos</a>).
         Dúvidas: <a href="https://wa.me/${WHATS_SUPORTE}" target="_blank" rel="noopener">WhatsApp (24) 99209-6103</a>.
@@ -2003,7 +2274,7 @@ function cpfOuCnpjValido(v){
 async function pagarPlano(chave, extra){
   const box = document.getElementById('pix-box'); if(!box || !sb) return;
   const p = PLANOS_VIST[chave];
-  box.innerHTML = `<div class="pix-app"><b>Gerando o Pix do plano ${esc(p.nome)} (${esc(p.preco)})…</b></div>`;
+  box.innerHTML = `<div class="pix-app"><b>Gerando o Pix · ${esc(p.nome)} (${esc(p.preco)})…</b></div>`;
   box.scrollIntoView({ behavior:'smooth', block:'center' });
   try{
     let cod = box.dataset.codigo && box.dataset.chave === chave ? box.dataset.codigo : '';
@@ -2021,7 +2292,7 @@ async function pagarPlano(chave, extra){
     if(data && data.pago){ box.innerHTML = `<div class="pix-app"><b>Pagamento confirmado.</b> Atualizando seu plano…</div>`; setTimeout(()=>render('plano'), 1500); return; }
     if(!data || !data.pix || !data.pix.payload) throw new Error((data && data.erro) || 'sem_pix');
     box.innerHTML = `<div class="pix-app">
-      <div style="font-weight:700; margin-bottom:6px;">Pix do plano ${esc(p.nome)} · ${esc(p.preco)} · pedido ${esc(cod)}</div>
+      <div style="font-weight:700; margin-bottom:6px;">Pix · ${esc(p.nome)} · ${esc(p.preco)} · pedido ${esc(cod)}</div>
       <img alt="QR code do Pix" src="data:image/png;base64,${data.pix.imagem}" style="width:220px; max-width:100%; display:block; margin:6px auto; background:#fff; border-radius:8px;">
       <textarea id="pix-copia" readonly rows="3" style="width:100%; font-size:12px;">${esc(data.pix.payload)}</textarea>
       <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copia').value).then(()=>toast('Código Pix copiado.'))">Copiar código Pix</button>
@@ -2030,7 +2301,7 @@ async function pagarPlano(chave, extra){
     pixTimer = setInterval(async () => {
       const st = document.getElementById('pix-status'); if(!st || ++n > 120){ clearInterval(pixTimer); return; }
       const r = await sb.from('vist_pagamentos').select('status').eq('codigo', cod).maybeSingle();
-      if(r.data && r.data.status === 'pago'){ clearInterval(pixTimer); delete box.dataset.codigo; toast('Pagamento confirmado! Plano ativado.'); await carregarConta(); render('plano'); }
+      if(r.data && r.data.status === 'pago'){ clearInterval(pixTimer); delete box.dataset.codigo; toast(chave === 'pacote-10' ? 'Pagamento confirmado! Diagnósticos liberados.' : 'Pagamento confirmado! Plano ativado.'); await carregarConta(); render('plano'); }
     }, 5000);
   }catch(e){
     console.error(e);

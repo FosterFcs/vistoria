@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validar laudo · VistorIA</title>
+<meta name="description" content="Confira a autenticidade de um laudo ou relatório emitido pelo VistorIA.">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ font-family:'Inter',sans-serif; background:#F3F4F6; color:#1E2023; min-height:100vh; }
+header{ background:#1E2023; color:#fff; padding:16px 20px; }
+header a{ color:#fff; text-decoration:none; font-family:'Oswald',sans-serif; font-size:24px; letter-spacing:.02em; }
+header a span{ color:#E00000; }
+main{ max-width:560px; margin:28px auto; padding:0 16px; }
+.card{ background:#fff; border-radius:10px; padding:24px; box-shadow:0 4px 18px rgba(0,0,0,.07); margin-bottom:16px; }
+h1{ font-family:'Oswald',sans-serif; font-size:24px; margin-bottom:6px; }
+p{ line-height:1.55; font-size:14.5px; }
+form{ display:flex; gap:8px; margin-top:16px; }
+input{ flex:1; padding:12px; border:1px solid #D5D8DD; border-radius:8px; font-size:16px; text-transform:uppercase; letter-spacing:.05em; }
+button{ padding:12px 18px; border:0; border-radius:8px; background:#E00000; color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+.ok{ border-left:5px solid #2F9E6E; }
+.nok{ border-left:5px solid #D64545; }
+.selo{ display:inline-block; font-weight:700; font-size:13px; padding:5px 10px; border-radius:20px; margin-bottom:12px; }
+.ok .selo{ background:#E3F4EC; color:#1F7A52; }
+.nok .selo{ background:#FBE4E4; color:#A12F2F; }
+dl{ display:grid; grid-template-columns:130px 1fr; gap:8px 12px; font-size:14.5px; margin-top:6px; }
+dt{ color:#6B7079; }
+dd{ font-weight:600; word-break:break-word; }
+.aviso{ font-size:12.5px; color:#6B7079; margin-top:14px; }
+footer{ text-align:center; font-size:12px; color:#8A8F96; padding:20px; }
+footer a{ color:#8A8F96; }
+</style>
+</head>
+<body>
+<header><a href="./">Vistor<span>IA</span></a></header>
+<main>
+  <div class="card">
+    <h1>Validar laudo</h1>
+    <p>Digite o código de autenticidade que aparece no rodapé do PDF (começa com <b>VL-</b>) ou aponte a câmera para o QR Code do documento.</p>
+    <form id="f"><input id="c" placeholder="VL-XXXXXXXX" maxlength="12" autocomplete="off" required><button>Conferir</button></form>
+  </div>
+  <div id="res"></div>
+</main>
+<footer>VistorIA · Wilson Foster · Engenheiro Civil · CREA/SP · <a href="termos.html">Termos e privacidade</a></footer>
+<script>
+const sb = window.supabase.createClient('https://fvsdlpnvqfvjdxmfgbjx.supabase.co', 'sb_publishable_VT3XEbInyTr2Eu-AuLnrqw_BOrA2jYy');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const TIPO = { diagnostico:'Avaliação técnica preliminar (diagnóstico por foto)', vistoria:'Laudo de vistoria' };
+const RISCO = { critico:'Crítico (prioridade 1)', prioridade:'Prioridade (prioridade 2)', atencao:'Atenção (prioridade 3)', baixo:'Baixo risco (prioridade 3)', indeterminado:'Não determinado' };
+async function conferir(cod){
+  cod = cod.trim().toUpperCase();
+  const res = document.getElementById('res');
+  if(cod === 'VL-EXEMPLO1'){ res.innerHTML = `<div class="card ok"><span class="selo">✓ Laudo de exemplo</span><p>Este é o código do <b>PDF de exemplo</b> do VistorIA. Num laudo de verdade, aqui aparecem o título, a obra, o nome e o registro de quem emitiu, a classificação de risco e a data da emissão, para quem recebeu o documento conferir que ele é autêntico.</p><p class="aviso"><a href="./">Conheça o VistorIA</a></p></div>`; return; }
+  if(!/^VL-[0-9A-F]{8}$/.test(cod)){ res.innerHTML = `<div class="card nok"><span class="selo">Código inválido</span><p>O código tem o formato VL- seguido de 8 letras e números (ex.: VL-3FA91C0B). Confira o rodapé do PDF.</p></div>`; return; }
+  res.innerHTML = `<div class="card"><p>Consultando…</p></div>`;
+  const { data, error } = await sb.rpc('vist_validar_laudo', { p_codigo: cod });
+  if(error){ res.innerHTML = `<div class="card nok"><span class="selo">Sem conexão</span><p>Não foi possível consultar agora. Tente de novo em instantes.</p></div>`; return; }
+  if(!data || !data.valido){ res.innerHTML = `<div class="card nok"><span class="selo">✗ Código não encontrado</span><p>Não existe documento emitido pelo VistorIA com o código <b>${esc(cod)}</b>. Confira se digitou certo. Se o código estiver correto, este documento não foi emitido pelo VistorIA ou foi alterado.</p></div>`; return; }
+  const data_ = new Date(data.emitido_em).toLocaleString('pt-BR', { dateStyle:'long', timeStyle:'short' });
+  res.innerHTML = `<div class="card ok"><span class="selo">✓ Documento autêntico</span>
+    <dl>
+      <dt>Código</dt><dd>${esc(data.codigo)}</dd>
+      <dt>Tipo</dt><dd>${esc(TIPO[data.tipo] || data.tipo)}</dd>
+      <dt>Título</dt><dd>${esc(data.titulo || '-')}</dd>
+      ${data.local ? `<dt>${data.tipo === 'vistoria' ? 'Categoria' : 'Obra / local'}</dt><dd>${esc(data.local)}</dd>` : ''}
+      <dt>Emitido por</dt><dd>${esc(data.emissor || '-')}${data.registro ? '<br><span style="font-weight:500">' + esc(data.registro) + '</span>' : ''}</dd>
+      ${data.risco ? `<dt>Classificação</dt><dd>${esc(RISCO[data.risco] || data.risco)}</dd>` : ''}
+      <dt>Primeira emissão</dt><dd>${esc(data_)}</dd>
+    </dl>
+    ${data.existe ? '' : '<p class="aviso"><b>Atenção:</b> o emissor excluiu este registro do histórico depois de emitir o documento.</p>'}
+    <p class="aviso">Confira se o título, o emissor e a data acima são os mesmos do PDF que você recebeu. A avaliação gerada com apoio de IA é preliminar e não substitui a vistoria presencial nem o laudo com ART/RRT de profissional habilitado.</p>
+  </div>`;
+}
+document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); conferir(document.getElementById('c').value); });
+const q = new URLSearchParams(location.search).get('c');
+if(q){ document.getElementById('c').value = q; conferir(q); }
+</script>
+</body>
+</html>
