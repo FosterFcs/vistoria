@@ -238,6 +238,10 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
 .lp-btn{ display:inline-flex; align-items:center; justify-content:center; text-decoration:none; padding:14px 22px; font-size:15.5px; font-weight:700; }
 .lp-btn-ghost{ background:transparent; color:#fff; border:1px solid #5A6068; }
 .lp-btn-ghost:hover{ background:#2A2D31; }
+.lp-btn-demo{ background:rgba(255,255,255,.06); color:#fff; border:2px dashed rgba(255,255,255,.5); }
+#demo-faixa{ background:#FFF4D6; color:#6B4A00; border-bottom:2px solid #E8B339; padding:9px 14px; font-size:13.5px; text-align:center; }
+#demo-faixa a{ color:#B3261E; font-weight:800; margin-left:6px; }
+.demo-nota{ background:#FFF4D6; border:1px solid #E8B339; color:#6B4A00; border-radius:6px; padding:9px 12px; font-size:13px; margin-bottom:12px; }
 .lp-sec{ max-width:1100px; margin:0 auto; padding:44px 20px; border-top:1px solid #33373D; }
 .lp-sec h2{ font-size:30px; color:#fff; margin-bottom:22px; }
 .lp-passos{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
@@ -287,6 +291,7 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
       <p>A IA identifica a manifestação patológica, a classificação de risco, as causas prováveis, as investigações e a norma de referência. Você revisa, assina e envia o PDF <b>com a sua marca</b> direto pelo WhatsApp.</p>
       <div class="lp-ctas">
         <a class="btn btn-primary lp-btn" href="#entrar" onclick="modoLogin('criar')">Testar grátis por 7 dias</a>
+        <a class="btn lp-btn lp-btn-demo" href="#demo" onclick="entrarDemo();return false">▶ Ver demonstração sem cadastro</a>
         <a class="btn lp-btn lp-btn-ghost" href="exemplo/diagnostico-ia-exemplo.pdf" target="_blank" rel="noopener">Ver um laudo de exemplo</a>
       </div>
     </div>
@@ -443,6 +448,7 @@ function respostaSupa(r, padrao){
 
 // Mantém as mesmas rotas que o app usava com o servidor antigo
 async function apiFetch(path, options={}){
+  if(DEMO) return demoApi(path, options);
   if(!sb) return { ok:false, status:0, data:{ message:'Sem conexão com o servidor.' } };
   const metodo = (options.method || 'GET').toUpperCase();
   const corpo = options.body ? JSON.parse(options.body) : null;
@@ -483,6 +489,107 @@ const DESENVOLVEDOR = {
 
 let usuarioLogado = null;
 let DB = { diagnosticos: [], vistorias: [] };
+/* ======================================================
+   DEMONSTRAÇÃO (sem cadastro) — dados de exemplo, nada é salvo no servidor
+   Abre por "Ver demonstração" na página inicial ou pelo link …/vistoria/#demo
+   ====================================================== */
+let DEMO = false;
+const DEMO_DB = { diagnosticos: [], vistorias: [] };
+const DEMO_ANALISES = {
+  trinca: { manifestacao_tipo:'Fissura inclinada (≈45°) a partir do canto da janela', classificacao_risco:'prioridade', elemento_afetado:'Alvenaria de vedação', local_aparente:'Canto inferior da abertura (janela)',
+    caracteristicas_visuais:'Fissura com abertura aparente acima de 0,5 mm, partindo do vértice da esquadria e seguindo inclinada; mancha de umidade próxima à base.', extensao_aparente:'Cerca de 60 a 80 cm',
+    limitacoes_foto:'Sem escala de referência e sem vista do outro lado da parede.',
+    hipoteses_causa:[{hipotese:'Ausência ou deficiência de verga/contraverga', mecanismo:'Concentração de tensões nos cantos da abertura gera fissuras a 45°.'},{hipotese:'Recalque diferencial da fundação', mecanismo:'Movimentação da base provoca fissuras inclinadas em direção ao ponto que mais desceu.'},{hipotese:'Movimentação térmica e retração', mecanismo:'Variação de temperatura e retração da argamassa abrem fissuras em pontos frágeis.'}],
+    elemento_estrutural:'nao_estrutural', elemento_estrutural_motivo:'A fissura está na alvenaria de vedação, mas pode refletir movimentação da estrutura ou da fundação.',
+    investigacoes_recomendadas:['Instalar selo/fissurômetro e acompanhar por 30 a 60 dias','Verificar existência de verga e contraverga','Vistoriar a face externa da parede e o piso próximo','Avaliar recalques com nível e prumo'],
+    perguntas_usuario:['A fissura aumentou nos últimos meses?','A porta ou janela próxima está emperrando?','Houve obra ou escavação vizinha recentemente?'],
+    diagnostico_hipotese_principal:'Fissura típica de concentração de tensões no canto da abertura, provavelmente por falta de verga/contraverga, sem descartar recalque.',
+    diagnostico_medidas:'Monitorar a abertura antes de reparar; se estável, tratar com tela e argamassa flexível e executar contraverga. Se evoluir, investigar fundação com engenheiro.',
+    norma_referencia:'ABNT NBR 16747 (Inspeção predial) · NBR 15575 (Desempenho) · NBR 8545 (Alvenaria)' },
+  revestimento: { manifestacao_tipo:'Fissura em revestimento cerâmico de piso', classificacao_risco:'atencao', elemento_afetado:'Revestimento cerâmico', local_aparente:'Piso, peça central',
+    caracteristicas_visuais:'Fissura fina atravessando uma placa cerâmica, sem desnível aparente entre as peças.', extensao_aparente:'Uma placa',
+    hipoteses_causa:[{hipotese:'Impacto localizado ou carga concentrada', mecanismo:'Queda de objeto ou apoio pontual sobre a peça.'},{hipotese:'Falta de juntas de movimentação', mecanismo:'Tensões do contrapiso transferidas ao revestimento.'}],
+    elemento_estrutural:'revestimento', investigacoes_recomendadas:['Teste de percussão (som cavo) nas peças vizinhas','Conferir juntas de movimentação e de dilatação'],
+    diagnostico_hipotese_principal:'Dano localizado na peça cerâmica.', diagnostico_medidas:'Substituir a placa; se houver som cavo em área maior, refazer o assentamento.', norma_referencia:'ABNT NBR 13753 · NBR 16747' },
+  mofo: { manifestacao_tipo:'Bolor/mofo por umidade ascendente', classificacao_risco:'atencao', elemento_afetado:'Parede, região do rodapé', local_aparente:'Base da parede',
+    caracteristicas_visuais:'Manchas escuras e eflorescência concentradas na base da parede, típicas de umidade que sobe do piso.', extensao_aparente:'Até 40 cm de altura',
+    hipoteses_causa:[{hipotese:'Falha na impermeabilização da fundação (baldrame)', mecanismo:'A água do solo sobe por capilaridade pela alvenaria.'},{hipotese:'Vazamento em tubulação próxima', mecanismo:'Umidade constante localizada.'}],
+    elemento_estrutural:'impermeabilizacao', investigacoes_recomendadas:['Medir umidade da parede','Teste de estanqueidade da tubulação próxima'],
+    diagnostico_hipotese_principal:'Umidade ascendente por falha de impermeabilização.', diagnostico_medidas:'Tratar a causa (impermeabilização/bloqueio químico) antes de refazer o revestimento.', norma_referencia:'ABNT NBR 9575 (Impermeabilização) · NBR 16747' }
+};
+async function demoFoto(nome){
+  try{ const b = await (await fetch('exemplo/demo-' + nome + '.jpg')).blob();
+    return await new Promise(r=>{ const f = new FileReader(); f.onload = ()=>r(f.result); f.readAsDataURL(b); }); }catch(e){ return null; }
+}
+function demoDiag(id, dias, foto, a, titulo, local, endereco){
+  const d = new Date(Date.now() - dias*864e5).toISOString();
+  return { id, titulo, obra_local: local, endereco, imagem_base64: foto, patologia_tipo: a.manifestacao_tipo, gravidade: a.classificacao_risco,
+    provavel_estrutural: labelElementoEstrutural(a.elemento_estrutural), norma_referencia: a.norma_referencia, diagnostico_texto: a.caracteristicas_visuais,
+    recomendacao: a.diagnostico_medidas, observacoes: '', status: 'aberto', analise_json: JSON.stringify(a), fotos_extras: null, criado_em: d };
+}
+async function entrarDemo(){
+  DEMO = true; usuarioLogado = 'demonstracao';
+  try{ if(!localStorage.getItem(chavePerfil())) localStorage.setItem(chavePerfil(), JSON.stringify({ nome:'Eng. Exemplo da Silva', empresa:'Exemplo Engenharia', registro:'CREA 000000/D', telefone:'(11) 90000-0000', email:'contato@exemplo.com.br' })); }catch(e){}
+  const [ft, fr, fm] = await Promise.all([demoFoto('trinca'), demoFoto('revestimento'), demoFoto('mofo')]);
+  DEMO_DB.diagnosticos = [
+    demoDiag('demo-d1', 1, ft, DEMO_ANALISES.trinca, 'Trinca na parede da sala', 'Residencial Jardim das Flores', 'Rua das Acácias, 210'),
+    demoDiag('demo-d2', 4, fm, DEMO_ANALISES.mofo, 'Mofo no rodapé do quarto', 'Casa Família Souza', 'Rua Sete, 45'),
+    demoDiag('demo-d3', 9, fr, DEMO_ANALISES.revestimento, 'Piso trincado na cozinha', 'Apto 32 — Edifício Aurora', 'Av. Central, 900')
+  ];
+  const amb = (nome, itens) => ({ nome, itens: itens.map(([item, estado, observacao]) => ({ item, estado, observacao, imagem_base64: null })) });
+  DEMO_DB.vistorias = [{ id:'demo-v1', categoria:'locacao_entrada', titulo:'Vistoria de entrada — Apto 32', imovel_endereco:'Av. Central, 900 — apto 32', cliente_nome:'Mariana Costa',
+    data_vistoria: new Date(Date.now()-2*864e5).toISOString().slice(0,10), observacoes_gerais:'Imóvel entregue limpo, com chaves e controles.', status:'concluida', criado_em: new Date(Date.now()-2*864e5).toISOString(),
+    conteudo_json: JSON.stringify({ ambientes:[ amb('Sala', [['Paredes','bom','Pintura nova'],['Piso','bom',''],['Janelas','regular','Trilho com folga']]), amb('Cozinha', [['Piso','ruim','Uma placa trincada'],['Louças/Metais','bom','']]), amb('Banheiro', [['Paredes','regular','Rejunte escurecido'],['Instalação Hidráulica','bom','']]) ] }) }];
+  CONTA = { ativo:true, em_teste:false, plano:'profissional', plano_ate:new Date(Date.now()+28*864e5).toISOString(), limite:150, usados:3, restantes:147, creditos:0 };
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  desenharSeloPlano();
+  const b = document.getElementById('badge-plano'); if(b) b.textContent = '👀 Demonstração';
+  if(!document.getElementById('demo-faixa')){
+    const f = document.createElement('div'); f.id = 'demo-faixa';
+    f.innerHTML = '👀 <b>Demonstração</b> — dados de exemplo, nada é salvo. <a href="#entrar" onclick="sairDemo(true);return false">Criar conta grátis (7 dias)</a>';
+    document.getElementById('app-shell').prepend(f);
+  }
+  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active', x.dataset.view === 'dashboard'));
+  document.getElementById('page-title').textContent = 'Dashboard';
+  render('dashboard');
+}
+function sairDemo(criar){
+  DEMO = false; usuarioLogado = null; CONTA = null;
+  const f = document.getElementById('demo-faixa'); if(f) f.remove();
+  document.getElementById('badge-plano').classList.add('hidden');
+  mostrarLanding(); if(criar){ modoLogin('criar'); document.getElementById('entrar').scrollIntoView(); }
+  if(location.hash === '#demo') history.replaceState(null, '', location.pathname);
+}
+async function demoApi(path, options){
+  const metodo = (options.method || 'GET').toUpperCase();
+  const corpo = options.body ? JSON.parse(options.body) : null;
+  const m = path.match(/^\/api\/(diagnosticos|vistorias|analisar)(?:\/([^/?]+))?/);
+  if(!m) return { ok:false, status:404, data:{ message:'Rota desconhecida' } };
+  const [, recurso, id] = m;
+  if(recurso === 'analisar'){
+    await new Promise(r=>setTimeout(r, 2200));
+    CONTA.usados++; CONTA.restantes--;
+    return { ok:true, status:200, data: Object.assign({ _demo:true }, JSON.parse(JSON.stringify(DEMO_ANALISES.trinca))) };
+  }
+  const lista = DEMO_DB[recurso];
+  if(metodo === 'GET' && !id) return { ok:true, status:200, data: lista.slice().sort((a,b)=>b.criado_em.localeCompare(a.criado_em)) };
+  if(metodo === 'GET'){ const x = lista.find(i=>i.id === id); return x ? { ok:true, status:200, data: JSON.parse(JSON.stringify(x)) } : { ok:false, status:404, data:{ message:'Não encontrado' } }; }
+  if(metodo === 'POST'){ const novo = Object.assign({}, corpo, { id: 'demo-' + uid(), criado_em: new Date().toISOString() }); lista.push(novo); return { ok:true, status:200, data:{ id: novo.id } }; }
+  if(metodo === 'DELETE'){ DEMO_DB[recurso] = lista.filter(i=>i.id !== id); return { ok:true, status:200, data:null }; }
+  return { ok:false, status:405, data:{ message:'Operação não suportada' } };
+}
+async function usarFotoExemplo(){
+  const f = await demoFoto('trinca'); if(!f){ toast('Não consegui carregar a foto de exemplo', false); return; }
+  imagemAtual = f;
+  const img = document.getElementById('preview-img'); img.src = f; img.classList.remove('hidden');
+  document.getElementById('upload-placeholder').classList.add('hidden');
+  document.getElementById('foto-acoes').classList.remove('hidden');
+  document.getElementById('btn-analisar').disabled = false;
+  const t = document.getElementById('novo-titulo'); if(t && !t.value) t.value = 'Trinca na parede da sala';
+  const l = document.getElementById('novo-local'); if(l && !l.value) l.value = 'Residencial Jardim das Flores';
+}
+
 
 function toast(msg, ok=true){
   const t = document.getElementById('toast');
@@ -536,7 +643,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
 });
 
 async function loadAll(){
-  if(!supaOk) return;
+  if(!supaOk && !DEMO) return;
   const resp = await apiFetch('/api/diagnosticos');
   if(resp.ok) DB.diagnosticos = resp.data || [];
   const resp2 = await apiFetch('/api/vistorias');
@@ -645,6 +752,7 @@ function renderNovo(el){
           <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); document.getElementById('input-camera').click()">📷 Tirar foto</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="event.stopPropagation(); document.getElementById('input-galeria').click()">🖼 Escolher da galeria</button>
+            ${DEMO ? `<button type="button" class="btn btn-amber btn-sm" onclick="event.stopPropagation(); usarFotoExemplo()">✨ Usar foto de exemplo</button>` : ''}
           </div>
         </div>
         <img id="preview-img" class="hidden">
@@ -826,7 +934,7 @@ function abrirMarcador(base64, aoSalvar){
 
 async function analisarFoto(){
   if(!imagemAtual){ toast('Escolha uma foto primeiro', false); return; }
-  if(!supaOk){ toast('Configure o backend para usar a IA', false); return; }
+  if(!supaOk && !DEMO){ toast('Configure o backend para usar a IA', false); return; }
 
   const btn = document.getElementById('btn-analisar');
   btn.disabled = true;
@@ -923,6 +1031,7 @@ function renderResultado(){
   area.innerHTML = `
     <div class="panel">
       <h2>3. Avaliação técnica preliminar <span class="tag">assistida por IA</span></h2>
+      ${resultadoIA._demo ? '<div class="demo-nota">👀 <b>Resultado de exemplo.</b> Na sua conta, a IA analisa a <b>sua</b> foto de verdade.</div>' : ''}
       ${renderizarAnaliseIA(resultadoIA)}
       <div class="field" style="margin-top:14px;"><label>Suas observações (opcional)</label><textarea id="novo-obs" rows="3" placeholder="Observações adicionais do engenheiro responsável"></textarea></div>
       <button class="btn btn-amber" onclick="salvarDiagnostico()">Salvar diagnóstico</button>
@@ -1682,7 +1791,7 @@ function lerPerfil(){
 function gravarPerfil(p){
   let ok = true;
   try{ localStorage.setItem(chavePerfil(), JSON.stringify(p)); }catch(e){ console.error(e); ok = false; }
-  if(sb && usuarioLogado){
+  if(sb && usuarioLogado && !DEMO){
     sb.rpc('vist_salvar_perfil', { p }).then(r => { if(r.error){ console.error(r.error); toast('Perfil salvo só neste aparelho (falha ao enviar para a nuvem).', false); } });
     return true;
   }
@@ -2014,6 +2123,7 @@ function numerarPaginas(doc, codigoAut){
 const URL_VALIDAR = 'https://fosterfcs.github.io/vistoria/validar.html';
 const _codigosAut = {};
 async function codigoAutenticidade(tipo, refId, titulo, local, risco){
+  if(DEMO) return 'VL-EXEMPLO';
   if(!sb || !refId) return null;
   if(_codigosAut[refId]) return _codigosAut[refId];
   const p = lerPerfil();
@@ -2176,6 +2286,7 @@ async function entregarPDF(doc, nome, modo, texto){
    PLANO (teste grátis, assinatura e uso da IA)
    ====================================================== */
 async function carregarConta(){
+  if(DEMO){ desenharSeloPlano(); const b = document.getElementById('badge-plano'); if(b) b.textContent = '👀 Demonstração'; return; }
   if(!sb) return;
   const r = await sb.rpc('vist_status');
   if(r.error){ console.error(r.error); return; }
@@ -2221,6 +2332,7 @@ function linkPlano(chave){
   return `https://wa.me/${WHATS_SUPORTE}?text=${encodeURIComponent(txt)}`;
 }
 async function renderPlano(el){
+  if(DEMO){ el.innerHTML = `<div class="panel"><h2>Demonstração</h2><p style="font-size:14px">Você está vendo o VistorIA com dados de exemplo. Crie sua conta para ter <b>7 dias grátis</b> com diagnósticos por IA nas <b>suas</b> fotos e laudos com a <b>sua</b> marca.</p><button class="btn btn-primary" onclick="sairDemo(true)">Criar conta grátis</button></div>`; return; }
   await carregarConta();
   if(!CONTA){ el.innerHTML = `<div class="empty"><div class="display">Não foi possível carregar seu plano</div>Verifique a conexão e tente de novo.</div>`; return; }
   const d = diasRestantes();
@@ -2272,6 +2384,7 @@ function cpfOuCnpjValido(v){
   return false;
 }
 async function pagarPlano(chave, extra){
+  if(DEMO){ toast('Na demonstração não há cobrança. Crie sua conta grátis para assinar.'); return; }
   const box = document.getElementById('pix-box'); if(!box || !sb) return;
   const p = PLANOS_VIST[chave];
   box.innerHTML = `<div class="pix-app"><b>Gerando o Pix · ${esc(p.nome)} (${esc(p.preco)})…</b></div>`;
@@ -2361,6 +2474,7 @@ async function initAuth(){
   sb.auth.onAuthStateChange((evento, sessao) => {
     if(evento === 'PASSWORD_RECOVERY'){ _emRecuperacao = true; mostrarLanding(); modoLogin('nova'); avisoLogin('Digite a sua nova senha.'); document.getElementById('entrar').scrollIntoView(); }
   });
+  if(location.hash === '#demo'){ entrarDemo(); return; }
   const { data } = await sb.auth.getSession();
   if(/type=recovery/.test(location.hash) || _emRecuperacao){ mostrarLanding(); modoLogin('nova'); return; }
   if(data.session){ await entrarNoApp(data.session); return; }
@@ -2411,6 +2525,7 @@ document.getElementById('form-login').addEventListener('submit', async (e)=>{
 });
 
 document.getElementById('logout-btn').addEventListener('click', async ()=>{
+  if(DEMO){ sairDemo(false); window.scrollTo(0,0); return; }
   if(sb) await sb.auth.signOut();
   usuarioLogado = null; CONTA = null;
   document.getElementById('badge-plano').classList.add('hidden');

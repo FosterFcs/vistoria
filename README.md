@@ -4,6 +4,8 @@ Diagnóstico de patologias construtivas por IA e laudo de vistoria, direto do ce
 
 Site: https://fosterfcs.github.io/vistoria/
 
+Demonstração sem cadastro: https://fosterfcs.github.io/vistoria/#demo (dados e análise de exemplo, nada é salvo; fotos em `exemplo/demo-*.jpg`).
+
 ## O que faz
 
 - **Diagnóstico por foto:** a IA avalia a foto (trinca, fissura, infiltração, mofo, corrosão etc.) e devolve:
