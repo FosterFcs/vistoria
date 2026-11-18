@@ -138,6 +138,11 @@ button.btn{ font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cur
 .btn-amber{ background:var(--amber); color:var(--blue-dark); }
 .btn-outline{ background:none; border:1.5px solid var(--blue); color:var(--blue); }
 .btn-outline:hover{ background:var(--blue); color:#fff; }
+.estado-btn{ background:#fff; border:1.5px solid var(--line); color:var(--ink); }
+.estado-btn.on-ok{ background:var(--green); border-color:var(--green); color:#fff; }
+.estado-btn.on-reg{ background:#E0A43A; border-color:#E0A43A; color:#fff; }
+.estado-btn.on-bad{ background:var(--red); border-color:var(--red); color:#fff; }
+.estado-btn.on-na{ background:#8A8780; border-color:#8A8780; color:#fff; }
 .btn-danger{ background:none; color:var(--red); border:1.5px solid var(--red); }
 .btn-sm{ padding:6px 12px; font-size:12.5px; }
 
@@ -328,7 +333,7 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
     <h2 class="display">O que vem no app</h2>
     <div class="lp-recursos">
       <div><h3>📷 Diagnóstico por foto</h3><p>Avaliação técnica preliminar com apoio em normas ABNT (NBR 16747, NBR 15575 e outras aplicáveis).</p></div>
-      <div><h3>📋 Vistoria completa</h3><p>Cômodo por cômodo, item por item, com estado, foto e observação. Locação (entrada e saída), obra nova, reforma e avaliação geral.</p></div>
+      <div><h3>📋 Vistoria completa</h3><p>Cada cômodo já vem com os itens a verificar e como testar (balde no ralo, lâmpada no bocal, voltagem na tomada). Locação (entrada e saída), acompanhamento de obra, obra nova, reforma e avaliação geral.</p></div>
       <div><h3>✍️ Assinatura na tela</h3><p>Vistoriador e cliente assinam no celular. A assinatura entra no laudo com data e hora.</p></div>
       <div><h3>🏷️ Sua marca no PDF</h3><p>Logo, nome, CREA/CAU, telefone e e-mail no cabeçalho de cada página.</p></div>
       <div><h3>🗂️ Histórico na nuvem</h3><p>Todos os diagnósticos e vistorias salvos, com busca, para gerar o PDF de novo quando precisar.</p></div>
@@ -366,7 +371,7 @@ a.btn{ text-decoration:none; display:inline-flex; align-items:center; justify-co
       <tr><td>QR Code de autenticidade em cada laudo</td><td class="sim">✓ Sim</td></tr>
       <tr><td>Marcação na foto e registro fotográfico com legendas</td><td class="sim">✓ Sim</td></tr>
       <tr><td>Quadro de prioridade pela NBR 16747</td><td class="sim">✓ Sim</td></tr>
-      <tr><td>Vistoria completa de locação, obra nova e reforma, com assinatura do cliente</td><td class="sim">✓ Incluída</td></tr>
+      <tr><td>Vistoria completa de locação, obra (andamento e entrega) e reforma, com checklist por cômodo e assinatura do cliente</td><td class="sim">✓ Incluída</td></tr>
       <tr><td>Histórico na nuvem para gerar o PDF de novo</td><td class="sim">✓ Sim</td></tr>
       <tr><td>Uso eventual sem mensalidade</td><td class="sim">✓ R$ 2,99 por diagnóstico</td></tr>
       <tr><td>Uso intenso</td><td class="sim">✓ ~R$ 0,53 por diagnóstico</td></tr>
@@ -1076,19 +1081,219 @@ async function salvarDiagnostico(){
 const CATEGORIAS_VISTORIA = [
   {v:'locacao_entrada', l:'Locação — Entrada (check-in)'},
   {v:'locacao_saida', l:'Locação — Saída (check-out)'},
+  {v:'obra_andamento', l:'Obra em andamento — Acompanhamento'},
   {v:'obra_nova', l:'Obra Nova — Entrega/Recebimento'},
   {v:'reforma', l:'Reforma — Antes/Depois'},
   {v:'avaliacao_geral', l:'Avaliação Geral do Imóvel'}
 ];
-const AMBIENTES_COMUNS = ['Sala','Cozinha','Quarto 1','Quarto 2','Banheiro','Área de Serviço','Varanda','Garagem','Área Externa','Escritório'];
+const AMBIENTES_COMUNS = ['Sala','Cozinha','Quarto 1','Quarto 2','Suíte','Banheiro','Lavabo','Área de Serviço','Varanda','Garagem','Área Externa','Escritório'];
 const ITENS_COMUNS = ['Paredes','Piso','Teto','Portas','Janelas','Instalação Elétrica','Instalação Hidráulica','Pintura','Acabamentos','Louças/Metais'];
 
-let vistoriaAtual = null; // { categoria, titulo, imovel_endereco, cliente_nome, data_vistoria, ambientes:[{nome, itens:[{item, estado, observacao, imagem_base64}]}] }
-let itemFotoAlvo = null; // { aIdx, iIdx } — para onde vai a próxima foto tirada/escolhida
+// Escalas de avaliação. Locação, reforma e avaliação geral usam a escala de estado,
+// que o mercado imobiliário já conhece; obra em andamento e entrega usam conformidade.
+const ESCALAS = {
+  estado: [
+    {v:'bom', l:'Bom'}, {v:'regular', l:'Regular'}, {v:'ruim', l:'Ruim'}, {v:'nao_aplicavel', l:'Não aplicável'}
+  ],
+  conformidade: [
+    {v:'conforme', l:'Conforme'}, {v:'nao_conforme', l:'Não conforme'}, {v:'nao_aplicavel', l:'Não aplicável'}
+  ]
+};
+const LAB_ESTADO = { bom:'Bom', regular:'Regular', ruim:'Ruim', conforme:'Conforme', nao_conforme:'Não conforme', nao_aplicavel:'Não aplicável' };
+const COR_ESTADO = { bom:'on-ok', conforme:'on-ok', regular:'on-reg', ruim:'on-bad', nao_conforme:'on-bad', nao_aplicavel:'on-na' };
+const LAB_ESTADO_CURTO = Object.assign({}, LAB_ESTADO, { nao_aplicavel:'N/A' });
+const CLASSE_ESTADO = { bom:'badge-baixa', conforme:'badge-baixa', regular:'badge-media', ruim:'badge-alta', nao_conforme:'badge-alta', nao_aplicavel:'badge-indeterminado' };
+function escalaDaCategoria(c){ return (c === 'obra_andamento' || c === 'obra_nova') ? 'conformidade' : 'estado'; }
+
+// Itens sugeridos por tipo de cômodo: [nome, como verificar, norma de referência]
+const ITENS_SECO = [
+  ['Paredes', 'Fissuras, manchas, umidade, prumo', 'NBR 15575-4'],
+  ['Teto / forro', 'Fissuras, manchas de infiltração, nivelamento', 'NBR 15575'],
+  ['Piso', 'Nivelamento, peças trincadas ou ocas (bater com martelo de borracha)', 'NBR 13753'],
+  ['Rodapé', 'Fixação, juntas, acabamento', ''],
+  ['Pintura', 'Manchas, bolhas, descascamento, eflorescência', 'NBR 13245'],
+  ['Porta', 'Abre e fecha sem raspar; maçaneta, fechadura e chave funcionando', 'NBR 15930'],
+  ['Janela', 'Abre e fecha, vedação, vidros firmes sem trepidação, ferrugem', 'NBR 10821'],
+  ['Tomadas', 'Testar tensão com identificador de voltagem; padrão e fixação', 'NBR 5410 / NBR 14136'],
+  ['Interruptores e iluminação', 'Testar cada ponto e os bocais com lâmpada', 'NBR 5410']
+];
+const ITENS_MOLHADO = [
+  ['Revestimento cerâmico', 'Rejunte completo, peças ocas ou trincadas', 'NBR 13753 / 13754'],
+  ['Caimento do piso', 'Jogar água com balde: deve escoar para o ralo sem empoçar', 'NBR 15575-3'],
+  ['Ralos e válvulas', 'Desobstruídos, escoando bem, com grelha', 'NBR 8160'],
+  ['Louças', 'Vaso e pia fixados e vedados, sem trincas', 'Manual do fabricante'],
+  ['Metais', 'Torneiras, chuveiro e registros funcionando, sem gotejamento', 'NBR 5626'],
+  ['Descarga', 'Aciona e para corretamente, sem vazamento', 'NBR 5626'],
+  ['Sifões e flexíveis', 'Sem vazamento sob a pia e o lavatório', 'NBR 5626 / NBR 8160'],
+  ['Box e vidro do box', 'Fixação, vedação, vidro de segurança', 'NBR 7199'],
+  ['Ventilação / exaustão', 'Janela ou exaustor funcionando', 'NBR 15575'],
+  ['Impermeabilização', 'Sem manchas de umidade nas paredes vizinhas ou no teto de baixo', 'NBR 9575']
+];
+const ITENS_COZINHA = [
+  ['Revestimento cerâmico', 'Rejunte completo, peças ocas ou trincadas', 'NBR 13753 / 13754'],
+  ['Bancada e cuba', 'Fixação, vedação com silicone, sem trincas', ''],
+  ['Torneira', 'Funcionando, sem gotejamento', 'NBR 5626'],
+  ['Sifão e flexíveis', 'Sem vazamento', 'NBR 5626 / NBR 8160'],
+  ['Ralo', 'Desobstruído (testar com balde)', 'NBR 8160'],
+  ['Ponto de gás', 'Registro funcionando; testar vazamento com espuma de sabão', 'NBR 15526'],
+  ['Ventilação para gás', 'Abertura de ventilação permanente desobstruída', 'NBR 15526'],
+  ['Tomadas de uso específico', 'Geladeira, micro-ondas, cooktop: tensão e circuito próprio', 'NBR 5410']
+];
+const ITENS_SERVICO = [
+  ['Tanque', 'Fixação, vedação, sem trincas', ''],
+  ['Torneiras', 'Funcionando, sem gotejamento', 'NBR 5626'],
+  ['Ralo', 'Desobstruído (testar com balde)', 'NBR 8160'],
+  ['Ponto da máquina de lavar', 'Água, esgoto e tomada no lugar', 'NBR 5626 / NBR 5410'],
+  ['Aquecedor a gás', 'Desobstruído, com chaminé/exaustão para fora e ventilação', 'NBR 13103'],
+  ['Ventilação', 'Abertura permanente desobstruída', 'NBR 15526']
+];
+const ITENS_VARANDA = [
+  ['Guarda-corpo', 'Firme, altura mínima de 1,10 m, sem vãos escaláveis', 'NBR 14718'],
+  ['Caimento do piso', 'Jogar água com balde: deve escoar para o ralo', 'NBR 15575-3'],
+  ['Ralo', 'Desobstruído', 'NBR 8160'],
+  ['Soleira e pingadeira', 'Sem infiltração para dentro do imóvel', 'NBR 15575-4']
+];
+const ITENS_EXTERNA = [
+  ['Piso', 'Nivelamento, trincas, caimento para drenagem', ''],
+  ['Portão', 'Abre e fecha; motor e controle funcionando', ''],
+  ['Muros e fachada', 'Fissuras, umidade, descolamento', 'NBR 15575-4'],
+  ['Calhas e rufos', 'Fixação, sem vazamento, desobstruídos', 'NBR 10844'],
+  ['Iluminação externa', 'Pontos funcionando', 'NBR 5410'],
+  ['Interfone / campainha', 'Funcionando', '']
+];
+function sugestoesDoAmbiente(nome){
+  const n = (nome || '').toLowerCase();
+  if(/banheiro|lavabo|su[ií]te|wc/.test(n)) return ITENS_SECO.concat(ITENS_MOLHADO);
+  if(/cozinha|copa/.test(n)) return ITENS_SECO.concat(ITENS_COZINHA);
+  if(/servi[cç]o|lavanderia/.test(n)) return ITENS_SECO.concat(ITENS_SERVICO);
+  if(/varanda|sacada|terra[cç]o/.test(n)) return ITENS_SECO.filter(i=>!/Teto|Rodapé/.test(i[0])).concat(ITENS_VARANDA);
+  if(/garagem|externa|quintal|fachada|jardim/.test(n)) return ITENS_EXTERNA;
+  return ITENS_SECO;
+}
+
+// Itens gerais (fora dos cômodos), por grupo e por categoria de vistoria.
+const TODAS = ['locacao_entrada','locacao_saida','obra_andamento','obra_nova','reforma','avaliacao_geral'];
+const GRUPOS_GERAIS = [
+  { g:'Documentação da obra', cats:['obra_andamento'], itens:[
+    ['Alvará de construção', 'Válido e disponível no canteiro', 'Código de Obras municipal'],
+    ['ART/RRT de execução e de projetos', 'Registradas e com o número anotado', 'Lei 6.496/1977'],
+    ['Projetos aprovados na última revisão', 'Arquitetura, estrutura e instalações no canteiro', 'Código de Obras municipal'],
+    ['Diário de obra / RDO', 'Preenchido e atualizado', 'Res. CONFEA 1.094/2017'],
+    ['Placa de obra', 'Com nome e registro do responsável técnico', 'Lei 5.194/1966, art. 16'],
+    ['Cronograma físico-financeiro', 'Atualizado, previsto x realizado', ''],
+    ['PGR da obra', 'Elaborado e disponível', 'NR-18 / NR-01'],
+    ['Recebimento de materiais', 'Nota fiscal, lote e conferência registrados', 'PBQP-H']
+  ]},
+  { g:'Canteiro e segurança', cats:['obra_andamento'], itens:[
+    ['Tapume, isolamento e sinalização', '', 'NR-18'],
+    ['Áreas de vivência', 'Sanitário, vestiário, refeitório, água potável', 'NR-18 / NR-24'],
+    ['EPIs', 'Em uso, com CA e fichas de entrega assinadas', 'NR-06'],
+    ['Proteção contra quedas', 'Guarda-corpo, rodapé, aberturas fechadas', 'NR-18'],
+    ['Andaimes', 'Montados, travados e ancorados', 'NR-18'],
+    ['Trabalho em altura', 'Treinamento, permissão de trabalho e ancoragem', 'NR-35'],
+    ['Instalações elétricas provisórias', 'Quadro fechado, DR, aterramento', 'NR-10 / NR-18'],
+    ['Extintores e circulação', 'Sinalizados; rotas desobstruídas', 'NR-23'],
+    ['Máquinas e equipamentos', 'Com proteções e operador capacitado', 'NR-12'],
+    ['Armazenamento de materiais', 'Cimento em estrado, aço protegido, agregados em baias', ''],
+    ['Limpeza e resíduos', 'Caçambas, CTR, canteiro organizado', 'Res. CONAMA 307/2002']
+  ]},
+  { g:'Locação e fundações', cats:['obra_andamento'], itens:[
+    ['Locação da obra', 'Gabarito, eixos, esquadro e níveis conferidos com o projeto', ''],
+    ['Sondagem', 'Disponível e compatível com a fundação adotada', 'NBR 6484 / NBR 8036'],
+    ['Fundações', 'Cotas, dimensões e armaduras conforme projeto', 'NBR 6122'],
+    ['Impermeabilização do baldrame', '', 'NBR 9575'],
+    ['Reaterro', 'Compactado em camadas, sem entulho', '']
+  ]},
+  { g:'Estrutura de concreto (execução)', cats:['obra_andamento'], itens:[
+    ['Fôrmas', 'Alinhadas, aprumadas, estanques, limpas e travadas', 'NBR 15696'],
+    ['Armaduras', 'Bitola, quantidade, espaçamento e ancoragem conforme projeto', 'NBR 6118 / NBR 14931'],
+    ['Cobrimento', 'Garantido por espaçadores', 'NBR 6118'],
+    ['Recebimento do concreto', 'fck e slump da nota conferidos; slump test', 'NBR 12655 / NBR 16889'],
+    ['Corpos de prova', 'Moldados e rastreados por elemento', 'NBR 5738 / NBR 12655'],
+    ['Lançamento, adensamento e cura', '', 'NBR 14931'],
+    ['Após a desforma', 'Sem ninhos, armadura exposta ou fissuras', 'NBR 14931'],
+    ['Escoramento', 'Retirado no prazo e na sequência corretos', 'NBR 15696']
+  ]},
+  { g:'Alvenaria', cats:['obra_andamento'], itens:[
+    ['Prumo, nível e esquadro', '', 'NBR 8545'],
+    ['Amarração e ligação com pilares', 'Tela ou ferro-cabelo', 'NBR 8545'],
+    ['Juntas de argamassa', 'Uniformes e preenchidas', 'NBR 8545'],
+    ['Vergas e contravergas', 'Com transpasse lateral adequado', 'NBR 8545'],
+    ['Encunhamento', 'Executado após o prazo', 'NBR 8545']
+  ]},
+  { g:'Instalações antes de fechar', cats:['obra_andamento'], itens:[
+    ['Teste de estanqueidade da água fria/quente', 'Antes de fechar paredes e forros', 'NBR 5626'],
+    ['Esgoto: declividade e ventilação', '', 'NBR 8160'],
+    ['Eletrodutos e caixas', 'Posições e alturas do projeto', 'NBR 5410'],
+    ['Rede de gás: teste de estanqueidade', '', 'NBR 15526'],
+    ['Impermeabilização: teste de lâmina d\'água (72 h)', 'Antes da proteção mecânica', 'NBR 9574']
+  ]},
+  { g:'Estrutura e manifestações patológicas', cats:['obra_nova','reforma','avaliacao_geral'], itens:[
+    ['Fissuras em pilares, vigas e lajes', '', 'NBR 6118'],
+    ['Destacamento ou desplacamento', 'De concreto ou de revestimento', 'NBR 6118'],
+    ['Corrosão de armaduras', 'Manchas de ferrugem, fissuras ao longo das barras', 'NBR 6118'],
+    ['Infiltração e umidade', 'Manchas em lajes, vigas e paredes', 'NBR 9575']
+  ]},
+  { g:'Cobertura e fachada', cats:['obra_nova','reforma','avaliacao_geral'], itens:[
+    ['Telhado', 'Telhas sem quebras, fixação e sobreposição', 'Manual do fabricante'],
+    ['Calhas, rufos e condutores', 'Estanques e desobstruídos', 'NBR 10844'],
+    ['Fachada', 'Sem fissuras; pingadeiras, peitoris e juntas', 'NBR 15575-4']
+  ]},
+  { g:'Instalações gerais do imóvel', cats:TODAS, itens:[
+    ['Quadro de luz', 'Desobstruído, disjuntores identificados, DR e DPS', 'NBR 5410'],
+    ['Sem fiação aparente', 'Nem emendas expostas', 'NBR 5410'],
+    ['Registro geral e hidrômetro', 'Funcionando e acessíveis', 'NBR 5626'],
+    ['Reservatório / caixa d\'água', 'Limpo, tampado, com extravasor e boia', 'NBR 5626'],
+    ['Registro geral de gás', 'Funcionando e acessível', 'NBR 15526'],
+    ['Interfone / campainha', 'Funcionando', '']
+  ]},
+  { g:'Leituras e chaves', cats:['locacao_entrada','locacao_saida'], itens:[
+    ['Leitura do medidor de água', 'Anote o número na observação e fotografe', ''],
+    ['Leitura do medidor de energia', 'Anote o número na observação e fotografe', ''],
+    ['Leitura do medidor de gás', 'Anote o número na observação e fotografe', ''],
+    ['Chaves e controles entregues', 'Anote a quantidade na observação', '']
+  ]},
+  { g:'Segurança e acessibilidade', cats:['obra_nova'], itens:[
+    ['Sistemas de incêndio', 'Extintores, iluminação e sinalização conforme projeto', 'Instruções Técnicas CBPMESP'],
+    ['AVCB/CLCB', 'Providenciado quando exigido', 'Corpo de Bombeiros'],
+    ['SPDA', 'Executado quando exigido', 'NBR 5419'],
+    ['Acessibilidade', 'Rampas, larguras e sanitário nas áreas exigidas', 'NBR 9050']
+  ]},
+  { g:'Documentação da reforma', cats:['reforma'], itens:[
+    ['ART/RRT da reforma', '', 'Lei 6.496/1977'],
+    ['Plano de reforma aprovado pelo condomínio', 'Quando em edificação com condomínio', 'NBR 16280'],
+    ['Destinação de entulho', 'Caçamba e CTR', 'Res. CONAMA 307/2002']
+  ]},
+  { g:'Documentos de entrega', cats:['obra_nova'], itens:[
+    ['Manual de uso, operação e manutenção', '', 'NBR 14037'],
+    ['Plano de manutenção preventiva', '', 'NBR 5674'],
+    ['Termo de garantia', 'Prazos por sistema', 'NBR 17170'],
+    ['Projetos "as built"', '', ''],
+    ['Habite-se / auto de conclusão', 'Ligações definitivas de água e energia', 'Código de Obras municipal'],
+    ['Limpeza final', 'Sem entulho nem equipamentos', '']
+  ]}
+];
+const FINALIDADES = ['Residencial','Comercial','Industrial','Misto'];
+const KIT_VISTORIA = ['Celular carregado (fotos)','Projetos ou plantas','Trena','Nível (bolha ou laser)','Balde (teste de escoamento)','Lâmpada (teste dos bocais)','Identificador de voltagem','Martelo de borracha (som cavo)','Etiquetas para marcar defeitos','EPIs (capacete, botina, óculos)'];
+
+function novoItemVistoria(def){
+  const [item, dica, norma] = Array.isArray(def) ? def : [def, '', ''];
+  return { item, dica: dica || '', norma: norma || '', estado: '', observacao: '', imagem_base64: null };
+}
+function gruposGeraisDaCategoria(c){
+  return GRUPOS_GERAIS.filter(gr => gr.cats.includes(c)).map(gr => ({ grupo: gr.g, itens: gr.itens.map(novoItemVistoria) }));
+}
+
+let vistoriaAtual = null; // { categoria, escala, titulo, ..., dados:{...}, ambientes:[{nome, itens:[...]}], gerais:[{grupo, itens:[...]}] }
+let itemFotoAlvo = null; // { sec, sIdx, iIdx } — para onde vai a próxima foto tirada/escolhida
 
 function renderVistoriaCompleta(el){
   if(CONTA && !CONTA.ativo){ avisoPlanoEncerrado(el, 'fazer novas vistorias'); return; }
-  vistoriaAtual = { categoria:'', titulo:'', imovel_endereco:'', cliente_nome:'', data_vistoria: new Date().toISOString().slice(0,10), ambientes:[] };
+  const agora = new Date();
+  vistoriaAtual = { categoria:'', escala:'estado', titulo:'', imovel_endereco:'', cliente_nome:'',
+    data_vistoria: agora.toISOString().slice(0,10),
+    dados: { hora: agora.toTimeString().slice(0,5), finalidade:'', cliente_documento:'', art:'', etapa:'', areas_comuns:'', testemunha_nome:'' },
+    ambientes:[], gerais:[] };
   el.innerHTML = `
     ${configNote()}
     <div class="panel">
@@ -1101,17 +1306,35 @@ function renderVistoriaCompleta(el){
           </select>
         </div>
         <div class="field"><label>Data</label><input id="vc-data" type="date" value="${vistoriaAtual.data_vistoria}"></div>
+        <div class="field"><label>Hora</label><input id="vc-hora" type="time" value="${vistoriaAtual.dados.hora}"></div>
       </div>
       <div class="field"><label>Título / Referência</label><input id="vc-titulo" placeholder="Ex: Vistoria de saída - Apto 42"></div>
       <div class="row">
         <div class="field"><label>Endereço do imóvel</label><input id="vc-endereco" placeholder="Endereço completo"></div>
-        <div class="field"><label>Cliente / Locatário / Responsável</label><input id="vc-cliente" placeholder="Nome"></div>
+        <div class="field"><label>Finalidade de uso</label>
+          <select id="vc-finalidade"><option value="">Selecione...</option>${FINALIDADES.map(f=>`<option>${f}</option>`).join('')}</select>
+        </div>
       </div>
+      <div class="row">
+        <div class="field"><label>Cliente / Locatário / Responsável</label><input id="vc-cliente" placeholder="Nome"></div>
+        <div class="field"><label>CPF/CNPJ do cliente <span class="tag">opcional</span></label><input id="vc-doc" placeholder="Somente se for constar no laudo"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>ART/RRT nº <span class="tag">opcional</span></label><input id="vc-art" placeholder="Número da ART ou RRT"></div>
+        <div class="field hidden" id="vc-etapa-box"><label>Etapa atual da obra</label><input id="vc-etapa" placeholder="Ex: estrutura do 2º pavimento"></div>
+      </div>
+      <div class="field"><label>Áreas comuns e equipamentos <span class="tag">opcional</span></label><input id="vc-areas" placeholder="Ex: piscina, elevador, central de GLP, gerador"></div>
+      <details style="margin-top:6px;">
+        <summary style="cursor:pointer; font-size:13.5px; font-weight:600;">Kit para levar à vistoria</summary>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:4px 16px; margin-top:8px; font-size:13px;">
+          ${KIT_VISTORIA.map(k=>`<label style="display:flex; gap:8px; align-items:center; font-weight:400;"><input type="checkbox" style="width:auto;"> ${esc(k)}</label>`).join('')}
+        </div>
+      </details>
     </div>
 
     <div class="panel">
-      <h2>2. Ambientes <span class="tag">${0} adicionado(s)</span></h2>
-      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Adicione cada cômodo/área e registre os itens de cada um.</div>
+      <h2>2. Ambientes <span class="tag" id="vc-tag-amb">0 adicionado(s)</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Cada cômodo já vem com os itens a verificar e como testar. Avalie, fotografe o que precisar e remova o que não existir.</div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
         ${AMBIENTES_COMUNS.map(a=>`<button type="button" class="btn btn-outline btn-sm" onclick="adicionarAmbiente('${a}')">+ ${a}</button>`).join('')}
       </div>
@@ -1122,18 +1345,29 @@ function renderVistoriaCompleta(el){
       <div id="lista-ambientes" style="margin-top:16px;"></div>
     </div>
 
+    <div class="panel" id="vc-gerais-panel">
+      <h2>3. Itens gerais <span class="tag" id="vc-tag-gerais">escolha a categoria</span></h2>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Itens fora dos cômodos, conforme a categoria da vistoria.</div>
+      <div id="lista-gerais"><div class="empty" style="padding:16px;">Escolha a categoria para ver os itens gerais</div></div>
+    </div>
+
     <div class="panel">
-      <h2>3. Observações gerais</h2>
+      <h2>4. Observações gerais</h2>
       <textarea id="vc-obs-gerais" rows="3" placeholder="Observações finais sobre o imóvel, resumo geral, etc."></textarea>
     </div>
 
     <div class="panel">
-      <h2>4. Assinaturas <span class="tag">opcional</span></h2>
+      <h2>5. Assinaturas <span class="tag">opcional</span></h2>
       <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Colete na tela do aparelho. As assinaturas entram no PDF do laudo, com data e hora.</div>
       <div class="row">
         <div class="field"><label>Vistoriador</label>${htmlAssinatura('ass-vist')}</div>
         <div class="field"><label>Cliente / Locatário</label>${htmlAssinatura('ass-cli')}</div>
       </div>
+      <details style="margin-top:6px;">
+        <summary style="cursor:pointer; font-size:13.5px; font-weight:600;">Testemunha</summary>
+        <div class="field" style="margin-top:8px;"><label>Nome da testemunha</label><input id="vc-testemunha" placeholder="Nome completo"></div>
+        <div class="field"><label>Assinatura da testemunha</label>${htmlAssinatura('ass-test')}</div>
+      </details>
     </div>
 
     <input type="file" id="vc-input-camera" accept="image/*" capture="environment" class="hidden">
@@ -1143,17 +1377,46 @@ function renderVistoriaCompleta(el){
   `;
   document.getElementById('vc-input-camera').addEventListener('change', (e)=> fotoItemSelecionada(e.target.files[0]));
   document.getElementById('vc-input-galeria').addEventListener('change', (e)=> fotoItemSelecionada(e.target.files[0]));
-  document.getElementById('vc-categoria').addEventListener('change', e=> vistoriaAtual.categoria = e.target.value);
+  document.getElementById('vc-categoria').addEventListener('change', e=> trocarCategoria(e.target.value));
   document.getElementById('vc-titulo').addEventListener('input', e=> vistoriaAtual.titulo = e.target.value);
   document.getElementById('vc-data').addEventListener('input', e=> vistoriaAtual.data_vistoria = e.target.value);
   document.getElementById('vc-endereco').addEventListener('input', e=> vistoriaAtual.imovel_endereco = e.target.value);
   document.getElementById('vc-cliente').addEventListener('input', e=> vistoriaAtual.cliente_nome = e.target.value);
+  const ligar = (id, campo) => document.getElementById(id).addEventListener('input', e=> vistoriaAtual.dados[campo] = e.target.value);
+  ligar('vc-hora','hora'); ligar('vc-doc','cliente_documento'); ligar('vc-art','art'); ligar('vc-etapa','etapa');
+  ligar('vc-areas','areas_comuns'); ligar('vc-testemunha','testemunha_nome');
+  document.getElementById('vc-finalidade').addEventListener('change', e=> vistoriaAtual.dados.finalidade = e.target.value);
   iniciarAssinatura('ass-vist', lerPerfil().assinatura || null);
   iniciarAssinatura('ass-cli', null);
+  iniciarAssinatura('ass-test', null);
+  renderListaAmbientes();
+}
+
+function itensAvaliados(){
+  return vistoriaAtual.ambientes.concat(vistoriaAtual.gerais).reduce((n, s) => n + s.itens.filter(i => i.estado).length, 0);
+}
+
+function trocarCategoria(nova){
+  const anterior = vistoriaAtual.categoria;
+  const avaliadosGerais = vistoriaAtual.gerais.reduce((n, g) => n + g.itens.filter(i => i.estado || i.observacao || i.imagem_base64).length, 0);
+  if(anterior && avaliadosGerais && !confirm('Trocar a categoria refaz a lista de itens gerais e apaga o que já foi preenchido nela. Continuar?')){
+    document.getElementById('vc-categoria').value = anterior; return;
+  }
+  vistoriaAtual.categoria = nova;
+  const escala = escalaDaCategoria(nova);
+  if(escala !== vistoriaAtual.escala){
+    // As escalas não se convertem: limpa os estados já marcados nos cômodos.
+    vistoriaAtual.ambientes.forEach(a => a.itens.forEach(i => { if(i.estado && i.estado !== 'nao_aplicavel') i.estado = ''; }));
+  }
+  vistoriaAtual.escala = escala;
+  vistoriaAtual.gerais = nova ? gruposGeraisDaCategoria(nova) : [];
+  document.getElementById('vc-etapa-box').classList.toggle('hidden', nova !== 'obra_andamento');
+  renderListaAmbientes();
+  renderListaGerais();
 }
 
 function adicionarAmbiente(nome){
-  vistoriaAtual.ambientes.push({ nome, itens: [] });
+  vistoriaAtual.ambientes.push({ nome, itens: sugestoesDoAmbiente(nome).map(novoItemVistoria) });
   renderListaAmbientes();
 }
 function adicionarAmbienteCustom(){
@@ -1168,92 +1431,141 @@ function removerAmbiente(idx){
   renderListaAmbientes();
 }
 
+function secaoDe(sec, sIdx){ return sec === 'g' ? vistoriaAtual.gerais[sIdx] : vistoriaAtual.ambientes[sIdx]; }
+function contagemSecao(s){ const a = s.itens.filter(i=>i.estado).length; return `${a}/${s.itens.length} avaliado(s)`; }
+
 function renderListaAmbientes(){
   const box = document.getElementById('lista-ambientes');
-  document.querySelector('#content .panel:nth-child(2) h2 .tag') && (document.querySelector('#content .panel:nth-child(2) h2 .tag').textContent = `${vistoriaAtual.ambientes.length} adicionado(s)`);
+  if(!box) return;
+  const tag = document.getElementById('vc-tag-amb');
+  if(tag) tag.textContent = `${vistoriaAtual.ambientes.length} adicionado(s)`;
   if(!vistoriaAtual.ambientes.length){ box.innerHTML = '<div class="empty" style="padding:16px;">Nenhum ambiente adicionado ainda</div>'; return; }
 
   box.innerHTML = vistoriaAtual.ambientes.map((amb, aIdx) => `
     <div class="panel" style="background:#F9FBFC; margin-bottom:12px;">
-      <div class="row2" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h3 style="font-size:16px;">${esc(amb.nome)}</h3>
+      <div class="row2" style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;">
+        <h3 style="font-size:16px;">${esc(amb.nome)} <span class="tag" id="cont-a-${aIdx}">${contagemSecao(amb)}</span></h3>
         <button type="button" class="btn btn-danger btn-sm" onclick="removerAmbiente(${aIdx})">Remover ambiente</button>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-        ${ITENS_COMUNS.map(i=>`<button type="button" class="btn btn-outline btn-sm" onclick="adicionarItem(${aIdx}, '${i}')">+ ${i}</button>`).join('')}
-      </div>
-      <div id="itens-ambiente-${aIdx}">${renderItensAmbiente(amb, aIdx)}</div>
+      <div id="itens-a-${aIdx}">${renderItensSecao('a', aIdx)}</div>
+      <details style="margin-top:6px;">
+        <summary style="cursor:pointer; font-size:13px; color:var(--ink-soft);">Adicionar outro item</summary>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
+          ${ITENS_COMUNS.map(i=>`<button type="button" class="btn btn-outline btn-sm" onclick="adicionarItem('a', ${aIdx}, '${i}')">+ ${i}</button>`).join('')}
+        </div>
+        <div class="row">
+          <input id="item-custom-a-${aIdx}" placeholder="Outro item...">
+          <button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto;" onclick="adicionarItemCustom('a', ${aIdx})">Adicionar</button>
+        </div>
+      </details>
     </div>
   `).join('');
 }
 
-function adicionarItem(aIdx, nomeItem){
-  vistoriaAtual.ambientes[aIdx].itens.push({ item: nomeItem, estado: 'bom', observacao: '', imagem_base64: null });
-  document.getElementById(`itens-ambiente-${aIdx}`).innerHTML = renderItensAmbiente(vistoriaAtual.ambientes[aIdx], aIdx);
-}
-function removerItem(aIdx, iIdx){
-  vistoriaAtual.ambientes[aIdx].itens.splice(iIdx,1);
-  document.getElementById(`itens-ambiente-${aIdx}`).innerHTML = renderItensAmbiente(vistoriaAtual.ambientes[aIdx], aIdx);
+function renderListaGerais(){
+  const box = document.getElementById('lista-gerais');
+  const tag = document.getElementById('vc-tag-gerais');
+  if(!box) return;
+  if(!vistoriaAtual.categoria){ tag.textContent = 'escolha a categoria'; box.innerHTML = '<div class="empty" style="padding:16px;">Escolha a categoria para ver os itens gerais</div>'; return; }
+  const total = vistoriaAtual.gerais.reduce((n,g)=>n+g.itens.length,0);
+  tag.textContent = `${total} item(ns)`;
+  box.innerHTML = vistoriaAtual.gerais.map((gr, gIdx) => `
+    <details class="panel" style="background:#F9FBFC; margin-bottom:12px;" ${gIdx===0?'open':''}>
+      <summary style="cursor:pointer; font-size:15px; font-weight:700;">${esc(gr.grupo)} <span class="tag" id="cont-g-${gIdx}">${contagemSecao(gr)}</span></summary>
+      <div id="itens-g-${gIdx}" style="margin-top:10px;">${renderItensSecao('g', gIdx)}</div>
+    </details>
+  `).join('');
 }
 
-function renderItensAmbiente(amb, aIdx){
-  if(!amb.itens.length) return '<div style="font-size:12.5px; color:var(--ink-soft);">Nenhum item ainda — clique nos botões acima.</div>';
-  return amb.itens.map((it, iIdx) => `
-    <div style="background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px; margin-bottom:8px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <strong style="font-size:13.5px;">${esc(it.item)}</strong>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(${aIdx},${iIdx})">Remover</button>
-      </div>
-      <div class="row">
-        <div class="field" style="margin-bottom:8px;"><label>Estado</label>
-          <select onchange="atualizarItem(${aIdx},${iIdx},'estado',this.value)">
-            <option value="bom" ${it.estado==='bom'?'selected':''}>Bom</option>
-            <option value="regular" ${it.estado==='regular'?'selected':''}>Regular</option>
-            <option value="ruim" ${it.estado==='ruim'?'selected':''}>Ruim</option>
-            <option value="nao_aplicavel" ${it.estado==='nao_aplicavel'?'selected':''}>Não aplicável</option>
-          </select>
+function adicionarItem(sec, sIdx, nomeItem){
+  secaoDe(sec, sIdx).itens.push(novoItemVistoria(nomeItem));
+  atualizarSecao(sec, sIdx);
+}
+function adicionarItemCustom(sec, sIdx){
+  const input = document.getElementById(`item-custom-${sec}-${sIdx}`);
+  if(!input || !input.value.trim()) return;
+  adicionarItem(sec, sIdx, input.value.trim());
+  input.value = '';
+}
+function removerItem(sec, sIdx, iIdx){
+  secaoDe(sec, sIdx).itens.splice(iIdx,1);
+  atualizarSecao(sec, sIdx);
+}
+function atualizarSecao(sec, sIdx){
+  const box = document.getElementById(`itens-${sec}-${sIdx}`);
+  if(box) box.innerHTML = renderItensSecao(sec, sIdx);
+  const cont = document.getElementById(`cont-${sec}-${sIdx}`);
+  if(cont) cont.textContent = contagemSecao(secaoDe(sec, sIdx));
+}
+
+function renderItensSecao(sec, sIdx){
+  const s = secaoDe(sec, sIdx);
+  if(!s.itens.length) return '<div style="font-size:12.5px; color:var(--ink-soft);">Nenhum item — adicione abaixo.</div>';
+  const opcoes = ESCALAS[vistoriaAtual.escala];
+  return s.itens.map((it, iIdx) => `
+    <div style="background:#fff; border:1px solid var(--line); border-left:4px solid ${it.estado ? 'var(--line)' : '#E0A43A'}; border-radius:6px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+        <div>
+          <strong style="font-size:13.5px;">${esc(it.item)}</strong>
+          ${it.dica ? `<div style="font-size:12px; color:var(--ink-soft);">${esc(it.dica)}</div>` : ''}
+          ${it.norma ? `<div style="font-size:11px; color:var(--ink-soft);">Ref.: ${esc(it.norma)}</div>` : ''}
         </div>
-        <div class="field" style="margin-bottom:8px;"><label>Foto</label>
-          <div style="display:flex; gap:6px;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="abrirFotoItem(${aIdx},${iIdx},'camera')">📷 Foto</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="abrirFotoItem(${aIdx},${iIdx},'galeria')">🖼 Galeria</button>
-          </div>
-        </div>
+        <button type="button" class="btn btn-danger btn-sm" style="flex:0 0 auto;" onclick="removerItem('${sec}',${sIdx},${iIdx})">Remover</button>
       </div>
-      ${it.imagem_base64 ? `<img src="data:image/jpeg;base64,${esc(it.imagem_base64)}" style="max-width:120px; border-radius:4px; margin-bottom:8px; display:block;">` : ''}
-      <input placeholder="Observação (opcional)" value="${esc(it.observacao||'')}" onchange="atualizarItem(${aIdx},${iIdx},'observacao',this.value)">
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+        ${opcoes.map(o => `<button type="button" class="btn btn-sm estado-btn ${it.estado===o.v ? COR_ESTADO[o.v] : ''}" onclick="marcarEstado('${sec}',${sIdx},${iIdx},'${o.v}')">${o.l}</button>`).join('')}
+      </div>
+      <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="abrirFotoItem('${sec}',${sIdx},${iIdx},'camera')">📷 Foto</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="abrirFotoItem('${sec}',${sIdx},${iIdx},'galeria')">🖼 Galeria</button>
+        ${it.imagem_base64 ? `<img src="data:image/jpeg;base64,${esc(it.imagem_base64)}" style="width:44px; height:44px; object-fit:cover; border-radius:4px;">` : ''}
+      </div>
+      <input placeholder="Observação (opcional)" value="${esc(it.observacao||'')}" onchange="atualizarItem('${sec}',${sIdx},${iIdx},'observacao',this.value)">
     </div>
   `).join('');
 }
 
-function atualizarItem(aIdx, iIdx, campo, valor){
-  vistoriaAtual.ambientes[aIdx].itens[iIdx][campo] = valor;
+function marcarEstado(sec, sIdx, iIdx, valor){
+  const it = secaoDe(sec, sIdx).itens[iIdx];
+  it.estado = it.estado === valor ? '' : valor;
+  atualizarSecao(sec, sIdx);
+}
+function atualizarItem(sec, sIdx, iIdx, campo, valor){
+  secaoDe(sec, sIdx).itens[iIdx][campo] = valor;
 }
 
-function abrirFotoItem(aIdx, iIdx, origem){
-  itemFotoAlvo = { aIdx, iIdx };
+function abrirFotoItem(sec, sIdx, iIdx, origem){
+  itemFotoAlvo = { sec, sIdx, iIdx };
   document.getElementById(origem === 'camera' ? 'vc-input-camera' : 'vc-input-galeria').click();
 }
 
 async function fotoItemSelecionada(file){
   if(!file || !itemFotoAlvo) return;
-  await fotoItem(itemFotoAlvo.aIdx, itemFotoAlvo.iIdx, file);
+  const alvo = itemFotoAlvo;
   itemFotoAlvo = null;
-}
-
-async function fotoItem(aIdx, iIdx, file){
-  if(!file) return;
   try{
     const dataUrl = await comprimirImagem(file, 1000, 0.65);
-    vistoriaAtual.ambientes[aIdx].itens[iIdx].imagem_base64 = dataUrl.split(',')[1];
-    document.getElementById(`itens-ambiente-${aIdx}`).innerHTML = renderItensAmbiente(vistoriaAtual.ambientes[aIdx], aIdx);
+    secaoDe(alvo.sec, alvo.sIdx).itens[alvo.iIdx].imagem_base64 = dataUrl.split(',')[1];
+    atualizarSecao(alvo.sec, alvo.sIdx);
   }catch(e){ toast('Erro ao processar a foto', false); }
+  document.getElementById('vc-input-camera').value = '';
+  document.getElementById('vc-input-galeria').value = '';
 }
 
 async function salvarVistoriaCompleta(){
   if(!vistoriaAtual.categoria){ toast('Selecione a categoria da vistoria', false); return; }
   if(!vistoriaAtual.titulo){ toast('Preencha o título da vistoria', false); return; }
-  if(!vistoriaAtual.ambientes.length){ toast('Adicione ao menos um ambiente', false); return; }
+  if(!vistoriaAtual.ambientes.length && !vistoriaAtual.gerais.length){ toast('Adicione ao menos um ambiente', false); return; }
+  if(!itensAvaliados()){ toast('Avalie ao menos um item', false); return; }
+
+  // Itens sem avaliação, foto ou observação não entram no laudo.
+  const vazio = it => !it.estado && !it.observacao && !it.imagem_base64;
+  const todas = vistoriaAtual.ambientes.concat(vistoriaAtual.gerais);
+  const semAvaliacao = todas.reduce((n, s) => n + s.itens.filter(vazio).length, 0);
+  if(semAvaliacao && !confirm(`${semAvaliacao} item(ns) não foram avaliados e ficarão fora do laudo. Salvar assim mesmo?`)) return;
+  const limpar = secs => secs.map(s => Object.assign({}, s, { itens: s.itens.filter(it => !vazio(it)) })).filter(s => s.itens.length);
+  const ambientes = limpar(vistoriaAtual.ambientes);
+  const gerais = limpar(vistoriaAtual.gerais);
 
   const obsGerais = document.getElementById('vc-obs-gerais').value;
   const perfil = lerPerfil();
@@ -1262,6 +1574,8 @@ async function salvarVistoriaCompleta(){
   if(sigV) assinaturas.vistoriador = { img:sigV.img, w:sigV.w, h:sigV.h, nome: perfil.nome || perfil.empresa || usuarioLogado || '', data: new Date().toISOString() };
   const sigC = obterAssinatura('ass-cli');
   if(sigC) assinaturas.cliente = { img:sigC.img, w:sigC.w, h:sigC.h, nome: vistoriaAtual.cliente_nome || '', data: new Date().toISOString() };
+  const sigT = obterAssinatura('ass-test');
+  if(sigT) assinaturas.testemunha = { img:sigT.img, w:sigT.w, h:sigT.h, nome: vistoriaAtual.dados.testemunha_nome || '', data: new Date().toISOString() };
   const payload = {
     categoria: vistoriaAtual.categoria,
     titulo: vistoriaAtual.titulo,
@@ -1269,7 +1583,7 @@ async function salvarVistoriaCompleta(){
     cliente_nome: vistoriaAtual.cliente_nome,
     data_vistoria: vistoriaAtual.data_vistoria,
     observacoes_gerais: obsGerais,
-    conteudo_json: JSON.stringify({ ambientes: vistoriaAtual.ambientes, assinaturas }),
+    conteudo_json: JSON.stringify({ versao: 2, escala: vistoriaAtual.escala, dados: vistoriaAtual.dados, ambientes, gerais, assinaturas }),
     status: 'concluida'
   };
 
@@ -1277,6 +1591,25 @@ async function salvarVistoriaCompleta(){
   if(!resp.ok){ toast(resp.data?.message || 'Erro ao salvar vistoria', false); return; }
   toast('Vistoria salva com sucesso');
   document.querySelector('[data-view="historico"]').click();
+}
+
+// Seções de uma vistoria salva (cômodos e itens gerais), para a tela e o PDF.
+// Vistorias antigas (sem "gerais") continuam funcionando.
+function secoesDaVistoria(conteudo){
+  const amb = (conteudo.ambientes || []).map(a => ({ titulo: a.nome, itens: a.itens || [] }));
+  const ger = (conteudo.gerais || []).map(g => ({ titulo: g.grupo, itens: g.itens || [], geral: true }));
+  return amb.concat(ger);
+}
+function linhasDadosExtras(conteudo){
+  const d = conteudo.dados || {};
+  return [
+    d.hora ? ['Hora', d.hora] : null,
+    d.finalidade ? ['Finalidade de uso', d.finalidade] : null,
+    d.cliente_documento ? ['CPF/CNPJ do cliente', d.cliente_documento] : null,
+    d.art ? ['ART/RRT nº', d.art] : null,
+    d.etapa ? ['Etapa da obra', d.etapa] : null,
+    d.areas_comuns ? ['Áreas comuns e equipamentos', d.areas_comuns] : null
+  ].filter(Boolean);
 }
 
 let historicoAba = 'diagnosticos';
@@ -1361,14 +1694,11 @@ async function verVistoria(id){
   if(!resp.ok){ toast('Erro ao carregar vistoria', false); return; }
   const v = resp.data;
   const conteudo = JSON.parse(v.conteudo_json || '{"ambientes":[]}');
+  conteudo.ambientes = conteudo.ambientes || [];
   window._vistAtual = v;
   window._vistConteudo = conteudo;
 
-  const badgeEstado = (e) => {
-    const map = {bom:'badge-baixa', regular:'badge-media', ruim:'badge-alta', nao_aplicavel:'badge-indeterminado'};
-    const lab = {bom:'Bom', regular:'Regular', ruim:'Ruim', nao_aplicavel:'N/A'};
-    return `<span class="badge ${map[e]||'badge-indeterminado'}">${esc(lab[e]||e)}</span>`;
-  };
+  const badgeEstado = (e) => e ? `<span class="badge ${CLASSE_ESTADO[e]||'badge-indeterminado'}">${esc(LAB_ESTADO_CURTO[e]||e)}</span>` : '';
 
   document.getElementById('content').innerHTML = `
     <div class="panel">
@@ -1378,13 +1708,14 @@ async function verVistoria(id){
         <div><strong>Cliente:</strong> ${esc(v.cliente_nome || '-')}</div>
       </div>
       <div style="font-size:13.5px; margin-top:6px;"><strong>Data:</strong> ${fmtDate(v.data_vistoria)}</div>
+      ${linhasDadosExtras(conteudo).map(([k,val]) => `<div style="font-size:13.5px; margin-top:4px;"><strong>${esc(k)}:</strong> ${esc(val)}</div>`).join('')}
 
-      ${conteudo.ambientes.map(amb => {
+      ${secoesDaVistoria(conteudo).map(amb => {
         const itensSimples = amb.itens.filter(it => !it.imagem_base64 && !it.observacao);
         const itensDetalhados = amb.itens.filter(it => it.imagem_base64 || it.observacao);
         return `
         <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line);">
-          <h3 style="font-size:15.5px; margin-bottom:8px;">${esc(amb.nome)}</h3>
+          <h3 style="font-size:15.5px; margin-bottom:8px;">${esc(amb.titulo)}${amb.geral ? ' <span class="tag">item geral</span>' : ''}</h3>
           ${itensSimples.length ? `
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:4px 16px; margin-bottom:${itensDetalhados.length ? '10px' : '0'};">
               ${itensSimples.map(it => `
@@ -1407,7 +1738,7 @@ async function verVistoria(id){
       `;}).join('')}
 
       ${v.observacoes_gerais ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Observações gerais:</strong> ${esc(v.observacoes_gerais)}</div>` : ''}
-      ${(conteudo.assinaturas && (conteudo.assinaturas.vistoriador || conteudo.assinaturas.cliente)) ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Assinaturas coletadas:</strong> ${conteudo.assinaturas.vistoriador ? '✔ Vistoriador' : ''} ${conteudo.assinaturas.cliente ? '✔ Cliente' : ''}</div>` : ''}
+      ${(conteudo.assinaturas && (conteudo.assinaturas.vistoriador || conteudo.assinaturas.cliente)) ? `<div style="margin-top:14px; font-size:13.5px;"><strong>Assinaturas coletadas:</strong> ${conteudo.assinaturas.vistoriador ? '✔ Vistoriador' : ''} ${conteudo.assinaturas.cliente ? '✔ Cliente' : ''} ${conteudo.assinaturas.testemunha ? '✔ Testemunha' : ''}</div>` : ''}
 
       <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="gerarLaudoPDF()">Gerar laudo PDF</button>
@@ -1436,7 +1767,7 @@ async function gerarLaudoPDF(modo){
   const doc = novoPDF();
   const perfil = lerPerfil();
 
-  const labEstado = {bom:'Bom', regular:'Regular', ruim:'Ruim', nao_aplicavel:'Não aplicável'};
+  const labEstado = LAB_ESTADO;
 
   function novaPagina(){
     doc.addPage();
@@ -1454,15 +1785,20 @@ async function gerarLaudoPDF(modo){
   doc.text(`Categoria: ${labelCategoria(v.categoria)}`, 15, y); y+=6;
   doc.text(`Endereço: ${v.imovel_endereco || '-'}`, 15, y); y+=6;
   doc.text(`Cliente/Responsável: ${v.cliente_nome || '-'}`, 15, y); y+=6;
-  doc.text(`Data da vistoria: ${fmtDate(v.data_vistoria)}`, 15, y); y+=6;
+  doc.text(`Data da vistoria: ${fmtDate(v.data_vistoria)}${(conteudo.dados && conteudo.dados.hora) ? ' às ' + conteudo.dados.hora : ''}`, 15, y); y+=6;
+  linhasDadosExtras(conteudo).filter(([k]) => k !== 'Hora').forEach(([k,val]) => {
+    const linhas = doc.splitTextToSize(`${k}: ${val}`, 180);
+    doc.text(linhas, 15, y); y += linhas.length*5 + 1;
+  });
   doc.text(`Vistoriador: ${perfil.nome || perfil.empresa || v.usuario_email || '-'}${perfil.registro ? '  ·  ' + perfil.registro : ''}`, 15, y); y+=10;
 
-  conteudo.ambientes.forEach(amb=>{
+  const estadoTxt = e => e ? (labEstado[e] || e) : 'Registro';
+  secoesDaVistoria(conteudo).forEach(amb=>{
     if(y > 250){ y = novaPagina(); }
     doc.setFillColor(240,244,248);
     doc.rect(15, y-4, 180, 8, 'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(11);
-    doc.text(amb.nome, 17, y+1.5); y+=10;
+    doc.text(amb.titulo, 17, y+1.5); y+=10;
 
     const itensSimples = amb.itens.filter(it => !it.imagem_base64 && !it.observacao);
     const itensDetalhados = amb.itens.filter(it => it.imagem_base64 || it.observacao);
@@ -1472,10 +1808,10 @@ async function gerarLaudoPDF(modo){
       if(y > 270){ y = novaPagina(); }
       doc.setFont('helvetica','normal'); doc.setFontSize(9);
       const it1 = itensSimples[i];
-      doc.text(`•  ${it1.item} — ${labEstado[it1.estado] || it1.estado}`, 17, y);
+      doc.text(doc.splitTextToSize(`•  ${it1.item} — ${estadoTxt(it1.estado)}`, 88)[0], 17, y);
       const it2 = itensSimples[i+1];
       if(it2){
-        doc.text(`•  ${it2.item} — ${labEstado[it2.estado] || it2.estado}`, 107, y);
+        doc.text(doc.splitTextToSize(`•  ${it2.item} — ${estadoTxt(it2.estado)}`, 88)[0], 107, y);
       }
       y += 5.5;
     }
@@ -1485,7 +1821,7 @@ async function gerarLaudoPDF(modo){
     itensDetalhados.forEach(it=>{
       if(y > 260){ y = novaPagina(); }
       doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
-      doc.text(`${it.item} — ${labEstado[it.estado] || it.estado}`, 17, y);
+      doc.text(doc.splitTextToSize(`${it.item} — ${estadoTxt(it.estado)}`, 140)[0], 17, y);
       if(it.imagem_base64){
         try{ doc.addImage(`data:image/jpeg;base64,${it.imagem_base64}`, 'JPEG', 165, y-4, 28, 21); }catch(e){}
       }
@@ -1510,7 +1846,7 @@ async function gerarLaudoPDF(modo){
     doc.text(linhasG, 15, y); y += linhasG.length*4.5 + 8;
   }
 
-  if(y > 222){ y = novaPagina(); }
+  if(y > ((conteudo.assinaturas && conteudo.assinaturas.testemunha) ? 176 : 222)){ y = novaPagina(); }
   y += 8;
   y = desenharAssinaturas(doc, y, v, conteudo, perfil);
 
@@ -2225,7 +2561,7 @@ function desenharAssinaturaResponsavel(doc, y, perfil){
 
 // Bloco de assinaturas do laudo: usa a assinatura da tela quando existe;
 // sem ela, deixa a linha em branco para assinar à mão.
-function desenharAssinaturas(doc, y, v, conteudo, perfil){
+function desenharAssinaturas(doc, yBase, v, conteudo, perfil){
   const ass = conteudo.assinaturas || {};
   const altSig = 22;
   const colunas = [
@@ -2236,7 +2572,11 @@ function desenharAssinaturas(doc, y, v, conteudo, perfil){
       nome: (ass.cliente && ass.cliente.nome) || v.cliente_nome || '',
       papel: 'Cliente / Locatário / Responsável', extra: '' }
   ];
+  if(ass.testemunha){
+    colunas.push({ x:15, dy: altSig + 24, sig: ass.testemunha, nome: ass.testemunha.nome || '', papel: 'Testemunha', extra: '' });
+  }
   colunas.forEach(c=>{
+    const y = yBase + (c.dy || 0);
     if(c.sig && c.sig.img){
       const k = Math.min(70 / c.sig.w, altSig / c.sig.h);
       const w = c.sig.w * k, h = c.sig.h * k;
@@ -2256,7 +2596,7 @@ function desenharAssinaturas(doc, y, v, conteudo, perfil){
       doc.setTextColor(0,0,0);
     }
   });
-  return y + altSig + 24;
+  return yBase + (ass.testemunha ? 2 : 1) * (altSig + 24);
 }
 
 // Entrega o PDF: baixa, ou abre o compartilhamento do celular (WhatsApp).

@@ -15,11 +15,16 @@ Demonstração sem cadastro: https://fosterfcs.github.io/vistoria/#demo (dados e
   - se o elemento é estrutural;
   - investigações recomendadas;
   - norma de referência.
-- **Vistoria completa:** registro cômodo por cômodo e item por item, com estado, foto e observação. Serve para:
+- **Vistoria completa:** registro cômodo por cômodo e item por item, com foto e observação. Serve para:
   - locação (entrada e saída);
-  - obra nova;
+  - acompanhamento de obra;
+  - obra nova (entrega/recebimento);
   - reforma;
   - avaliação geral.
+  - Cada cômodo já vem com os itens sugeridos para o tipo dele (banheiro, cozinha, área de serviço, varanda, área externa), com o teste a fazer e a norma de referência.
+  - Além dos cômodos, há **itens gerais** filtrados pela categoria: documentação, canteiro (NR-18), fundações, estrutura e alvenaria na obra em andamento; manifestações patológicas, cobertura, segurança e documentos de entrega na obra nova; leituras de medidores e chaves na locação.
+  - Escala: Bom/Regular/Ruim na locação, reforma e avaliação geral; Conforme/Não conforme nas vistorias de obra. Itens não avaliados ficam fora do laudo.
+  - Dados extras: hora, finalidade de uso, CPF/CNPJ, ART/RRT, etapa da obra, áreas comuns e assinatura de testemunha. Ficam em `conteudo_json` (`versao: 2`); vistorias antigas continuam abrindo.
 - **Assinatura na tela:** do vistoriador e do cliente, com data e hora.
 - **PDF com a marca do profissional:** logo, nome, CREA/CAU, telefone e e-mail. O PDF é enviado pelo WhatsApp.
 - **Histórico na nuvem:** com busca.
