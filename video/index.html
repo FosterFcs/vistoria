@@ -35,6 +35,7 @@ video{width:100%;max-height:72vh;aspect-ratio:9/16;background:#F2F0EB;border-rad
 .ghost{border:2px solid rgba(255,255,255,.35);color:#fff}
 .aviso{width:100%;background:#FFD23F;color:#111;font:700 15px/1.35 Inter;padding:12px 14px;border-radius:10px}
 small{color:#9CA0A8;font-size:13px;text-align:center}
+body.wide .wrap{max-width:1000px} body.wide video{aspect-ratio:16/9;max-height:none} body.wide .btn{max-width:520px}
 footer{color:#9CA0A8;font-size:12px;display:flex;align-items:center;gap:6px;margin-top:4px}
 </style>
 </head>
@@ -42,9 +43,8 @@ footer{color:#9CA0A8;font-size:12px;display:flex;align-items:center;gap:6px;marg
 <div class="hz"></div>
 <div class="wrap">
   <div class="logo">VISTOR<b>IA</b></div>
-  <video controls playsinline preload="metadata" poster="capa-vistoria.jpg">
-    <source src="vistoria.mp4" type="video/mp4">
-  </video>
+  <video id="vid" controls playsinline preload="metadata"></video>
+  <script>(function(){var v=document.getElementById("vid"),w=window.matchMedia("(min-width: 900px)").matches;if(w)document.body.classList.add("wide");v.poster=w?"capa-vistoria-horizontal.jpg":"capa-vistoria.jpg";v.src=w?"vistoria-horizontal.mp4":"vistoria.mp4";})();</script>
   <div class="aviso">⚠ Resultado preliminar: não substitui a vistoria nem a análise de um profissional habilitado.</div>
   <a class="btn red" href="../">Conhecer o VistorIA</a>
   
