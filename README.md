@@ -89,5 +89,5 @@ O único modelo de visão disponível hoje na conta Groq é `qwen/qwen3.8-27b` (
 
 ## Desenvolvedor
 
-Wilson Foster · Engenheiro Civil · CREA/SP
+Wilson Foster · Engenheiro Civil
 (24) 99209-6103 · comercial@fosterconstrucoes.com.br
